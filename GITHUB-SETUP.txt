@@ -1,0 +1,29 @@
+RAYNEO VR CONTROLLER v0.1 - NEW REPO SETUP
+
+This package contains the complete Android project AND its GitHub Actions workflow.
+
+IMPORTANT FOR A BRAND-NEW GITHUB REPOSITORY:
+GitHub cannot run a workflow while .github/workflows/build-apk.yml is still inside a ZIP file.
+So download this ZIP, extract it, then upload the extracted CONTENTS to the root of your new repository.
+
+Recommended repository name:
+  rayneo-vr-controller
+
+The repository root should end up containing:
+  .github/workflows/build-apk.yml
+  app/
+  build.gradle
+  gradle.properties
+  settings.gradle
+  README.md
+
+Once those files are committed to main, GitHub Actions will run automatically.
+You can also open Actions -> Build RayNeo VR Controller APK -> Run workflow.
+
+When it succeeds, open the workflow run and download the artifact:
+  RayNeo-VR-Controller-v0.1-LAB-APK
+
+Inside it is:
+  RayNeo-VR-Controller-v0.1-LAB.apk
+
+This is a SEPARATE project. Do not delete or overwrite the finished RayNeo Spatial release.

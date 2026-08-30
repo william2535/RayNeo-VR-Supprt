@@ -1,0 +1,2 @@
+For a NEW repository: extract RayNeo-VR-Controller-v0.1-GITHUB-READY.zip and upload the extracted contents to the repository root.
+The included .github/workflows/build-apk.yml then builds and uploads the installable APK automatically.
