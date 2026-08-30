@@ -23,11 +23,17 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
       - name: Install Android SDK components
         run: |
+          yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
 
       - name: Build APK
@@ -36,7 +42,12 @@ jobs:
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp build/outputs/apk/debug/*.apk output/RayNeo-VR-Controller-v0.1-LAB.apk
+          APK=$(find . -type f -name "*.apk" -path "*/build/outputs/apk/debug/*" | head -1)
+          if [ -z "$APK" ]; then
+            echo "No debug APK found"
+            exit 1
+          fi
+          cp "$APK" output/RayNeo-VR-Controller-v0.1-LAB.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
