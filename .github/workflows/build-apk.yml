@@ -1,1 +1,46 @@
+name: Build RayNeo VR Controller APK
 
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK components
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+
+      - name: Build APK
+        run: gradle assembleDebug --stacktrace
+
+      - name: Prepare APK
+        run: |
+          mkdir -p output
+          cp build/outputs/apk/debug/*.apk output/RayNeo-VR-Controller-v0.1-LAB.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RayNeo-VR-Controller-v0.1-LAB-APK
+          path: output/RayNeo-VR-Controller-v0.1-LAB.apk
+          if-no-files-found: error
