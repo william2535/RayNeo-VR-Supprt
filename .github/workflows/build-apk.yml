@@ -41,44 +41,12 @@ jobs:
           unzip -q RayNeo-VR-Controller-v0.2-COMBINED-CONTROLLER-LAB-SOURCE.zip -d project
           test -f project/settings.gradle
           test -f project/app/build.gradle
-
-          # @Keep is only needed with shrinking; this LAB debug build does not shrink.
           sed -i '/import androidx.annotation.Keep;/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
           sed -i '/^[[:space:]]*@Keep[[:space:]]*$/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
-
-          # Shizuku cannot deliver its Binder unless the app exposes ShizukuProvider.
-          python3 - <<'PY'
-          from pathlib import Path
-
-          manifest = Path('project/app/src/main/AndroidManifest.xml')
-          text = manifest.read_text()
-          provider = '''        <provider
-                      android:name="rikka.shizuku.ShizukuProvider"
-                      android:authorities="${applicationId}.shizuku"
-                      android:multiprocess="false"
-                      android:enabled="true"
-                      android:exported="true"
-                      android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
-
-'''
-          marker = '        <service android:name=".ControllerService" android:exported="false" />'
-          if 'rikka.shizuku.ShizukuProvider' not in text:
-              if marker not in text:
-                  raise SystemExit('ControllerService manifest marker not found')
-              text = text.replace(marker, provider + marker)
-          manifest.write_text(text)
-
-          gradle = Path('project/app/build.gradle')
-          g = gradle.read_text()
-          g = g.replace('versionCode 2', 'versionCode 3')
-          g = g.replace("versionName '0.2-combined-controller-lab'", "versionName '0.2.1-shizuku-fix'")
-          gradle.write_text(g)
-
-          main = Path('project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java')
-          m = main.read_text().replace('RAYNEO COMBINED CONTROLLER LAB v0.2', 'RAYNEO COMBINED CONTROLLER LAB v0.2.1')
-          main.write_text(m)
-          PY
-
+          python3 -c 'from pathlib import Path; p=Path("project/app/src/main/AndroidManifest.xml"); s=p.read_text(); marker="        <service android:name=\".ControllerService\" android:exported=\"false\" />"; provider="        <provider\n            android:name=\"rikka.shizuku.ShizukuProvider\"\n            android:authorities=\"${applicationId}.shizuku\"\n            android:multiprocess=\"false\"\n            android:enabled=\"true\"\n            android:exported=\"true\"\n            android:permission=\"android.permission.INTERACT_ACROSS_USERS_FULL\" />\n\n"; p.write_text(s if "rikka.shizuku.ShizukuProvider" in s else s.replace(marker, provider + marker))'
+          sed -i 's/versionCode 2/versionCode 3/' project/app/build.gradle
+          sed -i "s/versionName '0.2-combined-controller-lab'/versionName '0.2.1-shizuku-fix'/" project/app/build.gradle
+          sed -i 's/RAYNEO COMBINED CONTROLLER LAB v0.2/RAYNEO COMBINED CONTROLLER LAB v0.2.1/' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -n "ShizukuProvider" project/app/src/main/AndroidManifest.xml
           grep -n "versionCode 3\|versionName '0.2.1-shizuku-fix'" project/app/build.gradle
 
@@ -87,11 +55,11 @@ jobs:
 
       - name: Verify merged Shizuku manifest
         run: |
-          grep -R -n "rikka.shizuku.ShizukuProvider" project/app/build/intermediates/merged_manifest project/app/build/intermediates/merged_manifests || true
           if ! grep -R -q "rikka.shizuku.ShizukuProvider" project/app/build/intermediates/merged_manifest project/app/build/intermediates/merged_manifests 2>/dev/null; then
             echo "ShizukuProvider missing from merged manifest"
             exit 1
           fi
+          echo "ShizukuProvider verified in merged manifest"
 
       - name: Prepare APK
         run: |
