@@ -44,8 +44,22 @@ one(
 'AI seek listeners')
 
 one(
-'                    .putExtra(SbsMirrorService.EXTRA_VERTICAL_PX,(float)sbsVertical.getProgress())\n                    .putExtra(SbsMirrorService.EXTRA_SWAP_EYES,sbsSwap.isChecked());',
-'                    .putExtra(SbsMirrorService.EXTRA_VERTICAL_PX,(float)sbsVertical.getProgress())\n                    .putExtra(SbsMirrorService.EXTRA_SWAP_EYES,sbsSwap.isChecked())\n                    .putExtra(SbsMirrorService.EXTRA_AI_DEPTH_PERCENT,(float)sbsAiDepth.getProgress())\n                    .putExtra(SbsMirrorService.EXTRA_CONVERGENCE_PERCENT,(float)sbsConvergence.getProgress());',
+'''            Intent i=new Intent(this,SbsMirrorService.class).setAction(SbsMirrorService.ACTION_START)
+                    .putExtra(SbsMirrorService.EXTRA_RESULT_CODE,resultCode)
+                    .putExtra(SbsMirrorService.EXTRA_RESULT_DATA,data)
+                    .putExtra(SbsMirrorService.EXTRA_SEPARATION_PX,(float)sbsDepth.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_ZOOM_PERCENT,(float)sbsZoom.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_VERTICAL_PX,(float)sbsVertical.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_SWAP_EYES,sbsSwap.isChecked());''',
+'''            Intent i=new Intent(this,SbsMirrorService.class).setAction(SbsMirrorService.ACTION_START)
+                    .putExtra(SbsMirrorService.EXTRA_RESULT_CODE,resultCode)
+                    .putExtra(SbsMirrorService.EXTRA_RESULT_DATA,data)
+                    .putExtra(SbsMirrorService.EXTRA_SEPARATION_PX,(float)sbsDepth.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_ZOOM_PERCENT,(float)sbsZoom.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_VERTICAL_PX,(float)sbsVertical.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_SWAP_EYES,sbsSwap.isChecked())
+                    .putExtra(SbsMirrorService.EXTRA_AI_DEPTH_PERCENT,(float)sbsAiDepth.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_CONVERGENCE_PERCENT,(float)sbsConvergence.getProgress());''',
 'start AI extras')
 
 one(
@@ -59,8 +73,24 @@ one(
 'save AI settings')
 
 one(
-'    private void sendSbsConfig(){\n        if(sbsDepth==null)return;\n        try{\n            Intent i=new Intent(this,SbsMirrorService.class).setAction(SbsMirrorService.ACTION_CONFIG)\n                    .putExtra(SbsMirrorService.EXTRA_SEPARATION_PX,(float)sbsDepth.getProgress())\n                    .putExtra(SbsMirrorService.EXTRA_ZOOM_PERCENT,(float)sbsZoom.getProgress())\n                    .putExtra(SbsMirrorService.EXTRA_VERTICAL_PX,(float)sbsVertical.getProgress())\n                    .putExtra(SbsMirrorService.EXTRA_SWAP_EYES,sbsSwap.isChecked());',
-'    private void sendSbsConfig(){\n        if(sbsDepth==null)return;\n        try{\n            Intent i=new Intent(this,SbsMirrorService.class).setAction(SbsMirrorService.ACTION_CONFIG)\n                    .putExtra(SbsMirrorService.EXTRA_SEPARATION_PX,(float)sbsDepth.getProgress())\n                    .putExtra(SbsMirrorService.EXTRA_ZOOM_PERCENT,(float)sbsZoom.getProgress())\n                    .putExtra(SbsMirrorService.EXTRA_VERTICAL_PX,(float)sbsVertical.getProgress())\n                    .putExtra(SbsMirrorService.EXTRA_SWAP_EYES,sbsSwap.isChecked())\n                    .putExtra(SbsMirrorService.EXTRA_AI_DEPTH_PERCENT,(float)sbsAiDepth.getProgress())\n                    .putExtra(SbsMirrorService.EXTRA_CONVERGENCE_PERCENT,(float)sbsConvergence.getProgress());',
+'''    private void sendSbsConfig(){
+        if(sbsDepth==null)return;
+        try{
+            Intent i=new Intent(this,SbsMirrorService.class).setAction(SbsMirrorService.ACTION_CONFIG)
+                    .putExtra(SbsMirrorService.EXTRA_SEPARATION_PX,(float)sbsDepth.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_ZOOM_PERCENT,(float)sbsZoom.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_VERTICAL_PX,(float)sbsVertical.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_SWAP_EYES,sbsSwap.isChecked());''',
+'''    private void sendSbsConfig(){
+        if(sbsDepth==null)return;
+        try{
+            Intent i=new Intent(this,SbsMirrorService.class).setAction(SbsMirrorService.ACTION_CONFIG)
+                    .putExtra(SbsMirrorService.EXTRA_SEPARATION_PX,(float)sbsDepth.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_ZOOM_PERCENT,(float)sbsZoom.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_VERTICAL_PX,(float)sbsVertical.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_SWAP_EYES,sbsSwap.isChecked())
+                    .putExtra(SbsMirrorService.EXTRA_AI_DEPTH_PERCENT,(float)sbsAiDepth.getProgress())
+                    .putExtra(SbsMirrorService.EXTRA_CONVERGENCE_PERCENT,(float)sbsConvergence.getProgress());''',
 'live AI extras')
 
 one(
