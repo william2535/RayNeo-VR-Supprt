@@ -58,7 +58,7 @@ jobs:
           patch -d project -p1 < v053-overrides/v053-controller.patch
 
           # v0.5.4 comfort behavior: edge-only 360 + remove head-speed boost.
-          patch -d project -p1 < v054-overrides/v054-comfort-look.patch
+          python3 v054-overrides/patch_controller.py project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           python3 v054-overrides/patch_ui.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
           # Keep current Shizuku bridge generation; only the look mixer changed.
