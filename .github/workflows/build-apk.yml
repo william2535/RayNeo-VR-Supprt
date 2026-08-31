@@ -1,4 +1,4 @@
-name: Build RayNeo VR Look v0.4 APK
+name: Build RayNeo VR Look v0.4.1 APK
 
 on:
   push:
@@ -34,46 +34,48 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
-      - name: Assemble v0.4 VR Look source tree
+      - name: Assemble v0.4.1 VR Look source tree
         run: |
           rm -rf project
           mkdir project
           unzip -q RayNeo-VR-Controller-v0.2-COMBINED-CONTROLLER-LAB-SOURCE.zip -d project
           sed -i '/import androidx.annotation.Keep;/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
           sed -i '/^[[:space:]]*@Keep[[:space:]]*$/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
-          cp v04-overrides/app/build.gradle project/app/build.gradle
           cp v04-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
           gzip -dc v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java > project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           gzip -dc v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java > project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           cp v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/Tracker.java project/app/src/main/java/com/willflood/rayneovrcontroller/Tracker.java
-          grep -n "versionName '0.4-vr-look'" project/app/build.gradle
-          grep -n "RAYNEO VR LOOK v0.4" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          grep -n "MODE_HYBRID\|TURN_SNAP\|ACTION_HEAD_TOGGLE" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
+          cp v041-overrides/app/build.gradle project/app/build.gradle
+          patch -d project -p1 < v041-overrides/vrlook-v041.patch
+          grep -n "versionName '0.4.1-vr-look'" project/app/build.gradle
+          grep -n "RAYNEO VR LOOK v0.4.1" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -n "MOTION-ONLY 360" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -n "TURN_MOTION_ONLY\|movingOutward" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           grep -n "ShizukuProvider\|SYSTEM_ALERT_WINDOW" project/app/src/main/AndroidManifest.xml
 
-      - name: Build v0.4 APK
+      - name: Build v0.4.1 APK
         run: gradle -p project :app:assembleDebug --stacktrace
 
-      - name: Verify v0.4 package
+      - name: Verify v0.4.1 package
         run: |
           APK=project/app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.4-vr-look'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.4.1-vr-look'"
           if ! grep -R -q "rikka.shizuku.ShizukuProvider" project/app/build/intermediates/merged_manifest project/app/build/intermediates/merged_manifests 2>/dev/null; then
             echo "ShizukuProvider missing from merged manifest"
             exit 1
           fi
-          echo "v0.4 VR Look package verified"
+          echo "v0.4.1 VR Look package verified"
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.4-VR-LOOK.apk
-          ls -lh output/RayNeo-VR-Controller-v0.4-VR-LOOK.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.4.1-VR-LOOK-360-OPTIONS.apk
+          ls -lh output/RayNeo-VR-Controller-v0.4.1-VR-LOOK-360-OPTIONS.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RayNeo-VR-Controller-v0.4-VR-LOOK-APK
-          path: output/RayNeo-VR-Controller-v0.4-VR-LOOK.apk
+          name: RayNeo-VR-Controller-v0.4.1-VR-LOOK-360-OPTIONS-APK
+          path: output/RayNeo-VR-Controller-v0.4.1-VR-LOOK-360-OPTIONS.apk
           if-no-files-found: error
