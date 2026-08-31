@@ -1,4 +1,4 @@
-name: Build RayNeo Daily Driver v0.3.1 APK
+name: Build RayNeo VR Look v0.4 APK
 
 on:
   push:
@@ -34,53 +34,46 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
-      - name: Assemble v0.3.1 source tree
+      - name: Assemble v0.4 VR Look source tree
         run: |
           rm -rf project
           mkdir project
           unzip -q RayNeo-VR-Controller-v0.2-COMBINED-CONTROLLER-LAB-SOURCE.zip -d project
+          sed -i '/import androidx.annotation.Keep;/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          sed -i '/^[[:space:]]*@Keep[[:space:]]*$/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          cp v04-overrides/app/build.gradle project/app/build.gradle
+          cp v04-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
+          cp v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          cp v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
+          cp v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/Tracker.java project/app/src/main/java/com/willflood/rayneovrcontroller/Tracker.java
+          grep -n "versionName '0.4-vr-look'" project/app/build.gradle
+          grep -n "RAYNEO VR LOOK v0.4" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -n "MODE_HYBRID\|TURN_SNAP\|ACTION_HEAD_TOGGLE" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
+          grep -n "ShizukuProvider\|SYSTEM_ALERT_WINDOW" project/app/src/main/AndroidManifest.xml
 
-          cp v03-overrides/app/build.gradle project/app/build.gradle
-          cp v03-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
-          cp v03-overrides/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          cp v031-overrides/InputBridgeService.java project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
-          cp v031-overrides/IInputBridge.aidl project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
-
-          sed -i 's/versionCode 4/versionCode 5/' project/app/build.gradle
-          sed -i "s/versionName '0.3-daily-driver'/versionName '0.3.1-daily-driver-busy-fix'/" project/app/build.gradle
-          sed -i 's/RAYNEO DAILY DRIVER v0.3/RAYNEO DAILY DRIVER v0.3.1/' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          sed -i 's/\.version(3)\.debuggable(true)/.version(4).debuggable(true)/' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          sed -i 's/RayNeo Combined Controller/RayNeo Daily Driver/g' project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
-
-          grep -n "versionName '0.3.1-daily-driver-busy-fix'" project/app/build.gradle
-          grep -n "RAYNEO DAILY DRIVER v0.3.1" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          grep -n "version(4)" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          grep -n "16777114" project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
-          grep -n "killStaleBridgeSiblings" project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
-
-      - name: Build v0.3.1 APK
+      - name: Build v0.4 APK
         run: gradle -p project :app:assembleDebug --stacktrace
 
-      - name: Verify v0.3.1 package
+      - name: Verify v0.4 package
         run: |
           APK=project/app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.3.1-daily-driver-busy-fix'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.4-vr-look'"
           if ! grep -R -q "rikka.shizuku.ShizukuProvider" project/app/build/intermediates/merged_manifest project/app/build/intermediates/merged_manifests 2>/dev/null; then
             echo "ShizukuProvider missing from merged manifest"
             exit 1
           fi
-          echo "v0.3.1 package verified"
+          echo "v0.4 VR Look package verified"
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.3.1-DAILY-DRIVER-BUSY-FIX.apk
-          ls -lh output/RayNeo-VR-Controller-v0.3.1-DAILY-DRIVER-BUSY-FIX.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.4-VR-LOOK.apk
+          ls -lh output/RayNeo-VR-Controller-v0.4-VR-LOOK.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RayNeo-VR-Controller-v0.3.1-DAILY-DRIVER-BUSY-FIX-APK
-          path: output/RayNeo-VR-Controller-v0.3.1-DAILY-DRIVER-BUSY-FIX.apk
+          name: RayNeo-VR-Controller-v0.4-VR-LOOK-APK
+          path: output/RayNeo-VR-Controller-v0.4-VR-LOOK.apk
           if-no-files-found: error
