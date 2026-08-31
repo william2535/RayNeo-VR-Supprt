@@ -1,0 +1,30 @@
+--- a/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
++++ b/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
+@@ -283,7 +283,11 @@
+     }
+ 
+     private void handleAbs(int code,int value){
+-        int profile=PhysicalBridgeManager.profile;if(profile==0)profile=(supported(ABS_RX)&&supported(ABS_RY))?1:2;
++        int profile=PhysicalBridgeManager.profile;
++        if(profile==0){
++            boolean androidTriggerAxes=supported(ABS_GAS)&&supported(ABS_BRAKE);
++            profile=androidTriggerAxes?2:((supported(ABS_RX)&&supported(ABS_RY))?1:2);
++        }
+         if(code==ABS_X)pLX=normStick(code,value); else if(code==ABS_Y)pLY=normStick(code,value);
+         else if(code==ABS_HAT0X)pHatX=clampi(value,-1,1); else if(code==ABS_HAT0Y)pHatY=clampi(value,-1,1);
+         else if(profile==1){
+--- a/app/src/main/cpp/uinput_jni.c
++++ b/app/src/main/cpp/uinput_jni.c
+@@ -108,8 +108,10 @@
+         emit_ev(fd, EV_ABS, ABS_RX, 0);
+         emit_ev(fd, EV_ABS, ABS_RY, 0);
+     }
+-    emit_ev(fd, EV_ABS, ABS_GAS, lt);
+-    emit_ev(fd, EV_ABS, ABS_BRAKE, rt);
++    // Android InputReader on this handheld exposes BRAKE as LT and GAS as RT.
++    // Earlier RayNeo builds had these two virtual trigger outputs reversed.
++    emit_ev(fd, EV_ABS, ABS_BRAKE, lt);
++    emit_ev(fd, EV_ABS, ABS_GAS, rt);
+     emit_ev(fd, EV_ABS, ABS_HAT0X, hatX);
+     emit_ev(fd, EV_ABS, ABS_HAT0Y, hatY);
+     emit_ev(fd, EV_SYN, SYN_REPORT, 0);
