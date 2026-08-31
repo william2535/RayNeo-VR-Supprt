@@ -1,4 +1,4 @@
-name: Build RayNeo Combined Controller APK
+name: Build RayNeo Daily Driver APK
 
 on:
   push:
@@ -34,42 +34,43 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
-      - name: Extract and patch v0.2 combined source
+      - name: Assemble v0.3 source tree
         run: |
           rm -rf project
           mkdir project
           unzip -q RayNeo-VR-Controller-v0.2-COMBINED-CONTROLLER-LAB-SOURCE.zip -d project
-          test -f project/settings.gradle
-          test -f project/app/build.gradle
-          sed -i '/import androidx.annotation.Keep;/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
-          sed -i '/^[[:space:]]*@Keep[[:space:]]*$/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
-          python3 -c 'from pathlib import Path; p=Path("project/app/src/main/AndroidManifest.xml"); s=p.read_text(); marker="        <service android:name=\".ControllerService\" android:exported=\"false\" />"; provider="        <provider\n            android:name=\"rikka.shizuku.ShizukuProvider\"\n            android:authorities=\"${applicationId}.shizuku\"\n            android:multiprocess=\"false\"\n            android:enabled=\"true\"\n            android:exported=\"true\"\n            android:permission=\"android.permission.INTERACT_ACROSS_USERS_FULL\" />\n\n"; p.write_text(s if "rikka.shizuku.ShizukuProvider" in s else s.replace(marker, provider + marker))'
-          sed -i 's/versionCode 2/versionCode 3/' project/app/build.gradle
-          sed -i "s/versionName '0.2-combined-controller-lab'/versionName '0.2.1-shizuku-fix'/" project/app/build.gradle
-          sed -i 's/RAYNEO COMBINED CONTROLLER LAB v0.2/RAYNEO COMBINED CONTROLLER LAB v0.2.1/' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          cp v03-overrides/app/build.gradle project/app/build.gradle
+          cp v03-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
+          cp v03-overrides/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          cp v03-overrides/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          sed -i 's/RayNeo Combined Controller/RayNeo Daily Driver/g' project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
+          grep -n "versionName '0.3-daily-driver'" project/app/build.gradle
+          grep -n "RAYNEO DAILY DRIVER v0.3" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -n "ShizukuProvider" project/app/src/main/AndroidManifest.xml
-          grep -n "versionCode 3\|versionName '0.2.1-shizuku-fix'" project/app/build.gradle
 
-      - name: Build v0.2.1 APK
+      - name: Build v0.3 APK
         run: gradle -p project :app:assembleDebug --stacktrace
 
-      - name: Verify merged Shizuku manifest
+      - name: Verify v0.3 package
         run: |
+          APK=project/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.3-daily-driver'"
           if ! grep -R -q "rikka.shizuku.ShizukuProvider" project/app/build/intermediates/merged_manifest project/app/build/intermediates/merged_manifests 2>/dev/null; then
             echo "ShizukuProvider missing from merged manifest"
             exit 1
           fi
-          echo "ShizukuProvider verified in merged manifest"
+          echo "v0.3 Daily Driver package verified"
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.2.1-SHIZUKU-FIX.apk
-          ls -lh output/RayNeo-VR-Controller-v0.2.1-SHIZUKU-FIX.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.3-DAILY-DRIVER.apk
+          ls -lh output/RayNeo-VR-Controller-v0.3-DAILY-DRIVER.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RayNeo-VR-Controller-v0.2.1-SHIZUKU-FIX-APK
-          path: output/RayNeo-VR-Controller-v0.2.1-SHIZUKU-FIX.apk
+          name: RayNeo-VR-Controller-v0.3-DAILY-DRIVER-APK
+          path: output/RayNeo-VR-Controller-v0.3-DAILY-DRIVER.apk
           if-no-files-found: error
