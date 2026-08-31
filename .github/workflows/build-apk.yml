@@ -48,7 +48,7 @@ jobs:
 
           patch -d project -p1 < v041-overrides/vrlook-v041.patch
           patch -d project -p1 < v05-overrides/v05-main.patch
-          patch -d project -p1 < v051-overrides/v051-main.patch
+          python3 v051-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
           cp v051-overrides/app/build.gradle project/app/build.gradle
           cp v051-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
