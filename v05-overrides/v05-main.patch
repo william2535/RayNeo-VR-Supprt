@@ -1,0 +1,107 @@
+--- a/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
++++ b/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+@@ -5,6 +5,7 @@
+ import android.content.pm.PackageManager;
+ import android.hardware.input.InputManager;
+ import android.hardware.usb.*;
++import android.media.projection.MediaProjectionManager;
+ import android.net.Uri;
+ import android.os.*;
+ import android.provider.Settings;
+@@ -15,12 +16,12 @@
+ import rikka.shizuku.Shizuku;
+ 
+ public class MainActivity extends Activity implements InputManager.InputDeviceListener {
+-    private static final int VID=0x1BBB,PID=0xAF50,SHIZUKU_REQ=3002,OVERLAY_REQ=4004;
++    private static final int VID=0x1BBB,PID=0xAF50,SHIZUKU_REQ=3002,OVERLAY_REQ=4004,SBS_CAPTURE_REQ=5005;
+     private static final String USB_PERMISSION="com.willflood.rayneovrcontroller.USB_PERMISSION";
+     private static final String PREFS="rayneo_daily_driver";
+     private static final String[] VR_PROFILES={"Xbox Cloud","NVIDIA","FPS","Driving","Custom"};
+ 
+-    private TextView status,live,androidInput,deviceInfo,shizukuStatus,bridgeStatus;
++    private TextView status,live,androidInput,deviceInfo,shizukuStatus,bridgeStatus,sbsStatus;
+     private TextView gainLabel,rateLabel,angleLabel,hybridLabel,curveLabel,pitchLabel,yawLabel,deadLabel,smoothLabel,turnThresholdLabel,turnStrengthLabel,snapLabel;
+     private SeekBar gain,maxRate,fullAngle,hybrid,curve,pitchLimit,yawLimit,dead,smooth,turnThreshold,turnStrength,snapMs;
+     private Spinner mode,axisMode,physicalSpinner,physicalProfileSpinner,vrProfileSpinner,turnMode;
+@@ -33,6 +34,7 @@
+     private final ArrayList<String> physicalPaths=new ArrayList<>(),physicalNames=new ArrayList<>();
+ 
+     private final BroadcastReceiver usbReceiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent i){if(USB_PERMISSION.equals(i.getAction())){UsbDevice d=i.getParcelableExtra(UsbManager.EXTRA_DEVICE);if(i.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED,false)&&d!=null)startController();else status.setText("USB permission denied");}}};
++    private final BroadcastReceiver sbsStatusReceiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent i){if(sbsStatus!=null){String t=i.getStringExtra("text");if(t!=null)sbsStatus.setText(t);}}};
+     private final BroadcastReceiver statusReceiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent i){
+         if(status==null||live==null)return;
+         String t=i.getStringExtra("text");if(t!=null)status.setText(t);
+@@ -56,7 +58,7 @@
+ 
+     @Override public void onCreate(Bundle b){
+         super.onCreate(b);
+-        registerReceiver(usbReceiver,new IntentFilter(USB_PERMISSION));registerReceiver(statusReceiver,new IntentFilter(ControllerService.ACTION_STATUS));
++        registerReceiver(usbReceiver,new IntentFilter(USB_PERMISSION));registerReceiver(statusReceiver,new IntentFilter(ControllerService.ACTION_STATUS));registerReceiver(sbsStatusReceiver,new IntentFilter(SbsMirrorService.ACTION_STATUS));
+         inputManager=(InputManager)getSystemService(INPUT_SERVICE);inputManager.registerInputDeviceListener(this,null);
+         Shizuku.addBinderReceivedListener(binderListener);Shizuku.addBinderDeadListener(binderDeadListener);Shizuku.addRequestPermissionResultListener(permissionListener);
+         prefs=getSharedPreferences(PREFS,MODE_PRIVATE);
+@@ -66,8 +68,8 @@
+ 
+     private void buildUi(){
+         ScrollView sv=new ScrollView(this);LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(24,20,24,48);sv.addView(root);
+-        TextView title=new TextView(this);title.setText("RAYNEO VR LOOK v0.4.1");title.setTextSize(25);title.setTextColor(Color.BLACK);title.setTypeface(null,1);root.addView(title);
+-        TextView sub=new TextView(this);sub.setText("Daily Driver bridge + hybrid VR head-look, profiles, comfort turning, controller shortcuts and background HUD.");sub.setTextSize(14);sub.setPadding(0,4,0,10);root.addView(sub);
++        TextView title=new TextView(this);title.setText("RAYNEO VR v0.5 • SBS LAB");title.setTextSize(25);title.setTextColor(Color.BLACK);title.setTypeface(null,1);root.addView(title);
++        TextView sub=new TextView(this);sub.setText("v0.4.1 VR Look + experimental live side-by-side visual mirror for RayNeo 3D/SBS testing.");sub.setTextSize(14);sub.setPadding(0,4,0,10);root.addView(sub);
+         dailyDriver=switcher(root,"DAILY DRIVER AUTO • reconnect + grab + passthrough + head mix");
+         status=box(root,"Checking RayNeo…",0xffe4e7e0,Color.BLACK);
+         deviceInfo=box(root,"ANDROID GAMEPAD: not detected yet",0xffeeeeee,Color.BLACK);
+@@ -124,7 +126,13 @@
+         headMix=switcher(root,"HEAD MIX: add RayNeo aim to physical right stick");
+         bridgeStatus=box(root,"BRIDGE: not grabbed",0xfff0f0f0,Color.BLACK);
+ 
+-        heading(root,"5 • LIVE ANDROID INPUT CHECK");
++        heading(root,"5 • v0.5 SBS VISUAL LAB (EXPERIMENTAL)");
++        sbsStatus=box(root,"SBS MIRROR: stopped",0xffe7edf3,Color.BLACK);
++        box(root,"LIVE SBS MIRROR captures the game screen and duplicates it into LEFT + RIGHT eye halves. It prefers the RayNeo as a separate external display (best/no recursion). This first build is MONO SBS: it proves the visual pipeline before real stereo/depth work.",0xfff3efe3,Color.BLACK);
++        LinearLayout sbsRow=row(root);Button startSbs=button("START LIVE SBS MIRROR",0xff375d84),stopSbs=button("STOP SBS",0xff9e3d36);sbsRow.addView(startSbs,weight());sbsRow.addView(stopSbs,weight());
++        startSbs.setOnClickListener(v->startSbsMirrorFlow());stopSbs.setOnClickListener(v->stopSbsMirror());
++
++        heading(root,"6 • LIVE ANDROID INPUT CHECK");
+         androidInput=box(root,"ANDROID INPUT EVENT\nWaiting for joystick events…",0xffeeeeee,Color.BLACK);androidInput.setTypeface(android.graphics.Typeface.MONOSPACE);
+         rollSteer=switcher(root,"Legacy roll steering (head-only testing)");
+         setContentView(sv);
+@@ -214,6 +222,31 @@
+     private void sendConfig(){if(mode==null||axisMode==null)return;try{startService(configured(ControllerService.ACTION_CONFIG));}catch(Exception ignored){}}
+     private void sendAction(String action){try{startService(new Intent(this,ControllerService.class).setAction(action));}catch(Exception ignored){}}
+ 
++    private void startSbsMirrorFlow(){
++        try{
++            MediaProjectionManager mpm=(MediaProjectionManager)getSystemService(MEDIA_PROJECTION_SERVICE);
++            if(sbsStatus!=null)sbsStatus.setText("Choose what Android may capture for the SBS mirror…");
++            startActivityForResult(mpm.createScreenCaptureIntent(),SBS_CAPTURE_REQ);
++        }catch(Throwable t){if(sbsStatus!=null)sbsStatus.setText("SBS capture request failed: "+t.getClass().getSimpleName()+" "+String.valueOf(t.getMessage()));}
++    }
++
++    private void stopSbsMirror(){
++        try{startService(new Intent(this,SbsMirrorService.class).setAction(SbsMirrorService.ACTION_STOP));}catch(Throwable ignored){}
++        if(sbsStatus!=null)sbsStatus.setText("SBS MIRROR: stopping…");
++    }
++
++    @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
++        super.onActivityResult(requestCode,resultCode,data);
++        if(requestCode==SBS_CAPTURE_REQ){
++            if(resultCode!=RESULT_OK||data==null){if(sbsStatus!=null)sbsStatus.setText("SBS capture cancelled");return;}
++            Intent i=new Intent(this,SbsMirrorService.class).setAction(SbsMirrorService.ACTION_START)
++                    .putExtra(SbsMirrorService.EXTRA_RESULT_CODE,resultCode)
++                    .putExtra(SbsMirrorService.EXTRA_RESULT_DATA,data);
++            try{if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);if(sbsStatus!=null)sbsStatus.setText("Starting SBS output…");}
++            catch(Throwable t){if(sbsStatus!=null)sbsStatus.setText("Could not start SBS service: "+t.getClass().getSimpleName());}
++        }
++    }
++
+     private void refreshDeviceInfo(){if(inputManager==null||deviceInfo==null)return;String found=null;for(int id:InputDevice.getDeviceIds()){InputDevice d=InputDevice.getDevice(id);if(d!=null&&d.getName()!=null&&d.getName().contains("RayNeo VR Gamepad")){found="ANDROID VIRTUAL GAMEPAD DETECTED • id "+id+"\nsources 0x"+Integer.toHexString(d.getSources());break;}}deviceInfo.setText(found!=null?found:"ANDROID VIRTUAL GAMEPAD: not detected yet");}
+     @Override public boolean dispatchGenericMotionEvent(MotionEvent e){if((e.getSource()&InputDevice.SOURCE_JOYSTICK)==InputDevice.SOURCE_JOYSTICK&&e.getAction()==MotionEvent.ACTION_MOVE){androidInput.setText(String.format(Locale.UK,"ANDROID INPUT EVENT\nLEFT X/Y %+5.2f %+5.2f\nZ/RZ     %+5.2f %+5.2f\nRX/RY    %+5.2f %+5.2f",e.getAxisValue(MotionEvent.AXIS_X),e.getAxisValue(MotionEvent.AXIS_Y),e.getAxisValue(MotionEvent.AXIS_Z),e.getAxisValue(MotionEvent.AXIS_RZ),e.getAxisValue(MotionEvent.AXIS_RX),e.getAxisValue(MotionEvent.AXIS_RY)));return true;}return super.dispatchGenericMotionEvent(e);}
+     @Override public boolean dispatchKeyEvent(KeyEvent e){if((e.getSource()&InputDevice.SOURCE_GAMEPAD)==InputDevice.SOURCE_GAMEPAD){androidInput.setText("ANDROID GAMEPAD KEY\nkeyCode="+e.getKeyCode()+"  "+(e.getAction()==KeyEvent.ACTION_DOWN?"DOWN":"UP"));return true;}return super.dispatchKeyEvent(e);}
+@@ -221,5 +254,5 @@
+ 
+     @Override protected void onResume(){super.onResume();int serviceProfile=Math.max(0,Math.min(VR_PROFILES.length-1,prefs.getInt("current_vr_profile",currentProfile)));if(serviceProfile!=currentProfile){currentProfile=serviceProfile;loadProfile(currentProfile);}updateUsbState();updateShizukuState();if(floatingHud!=null&&floatingHud.isChecked()&&!Settings.canDrawOverlays(this)){boolean old=restoringSettings;restoringSettings=true;floatingHud.setChecked(false);restoringSettings=old;saveProfile();}sendConfig();handler.postDelayed(this::dailyDriverKick,250);}
+     @Override protected void onNewIntent(Intent i){super.onNewIntent(i);setIntent(i);updateUsbState();handler.postDelayed(this::dailyDriverKick,250);}
+-    @Override protected void onDestroy(){handler.removeCallbacksAndMessages(null);try{if(inputManager!=null)inputManager.unregisterInputDeviceListener(this);}catch(Exception ignored){}try{unregisterReceiver(usbReceiver);}catch(Exception ignored){}try{unregisterReceiver(statusReceiver);}catch(Exception ignored){}try{Shizuku.removeBinderReceivedListener(binderListener);Shizuku.removeBinderDeadListener(binderDeadListener);Shizuku.removeRequestPermissionResultListener(permissionListener);}catch(Throwable ignored){}super.onDestroy();}
++    @Override protected void onDestroy(){handler.removeCallbacksAndMessages(null);try{if(inputManager!=null)inputManager.unregisterInputDeviceListener(this);}catch(Exception ignored){}try{unregisterReceiver(usbReceiver);}catch(Exception ignored){}try{unregisterReceiver(statusReceiver);}catch(Exception ignored){}try{unregisterReceiver(sbsStatusReceiver);}catch(Exception ignored){}try{Shizuku.removeBinderReceivedListener(binderListener);Shizuku.removeBinderDeadListener(binderDeadListener);Shizuku.removeRequestPermissionResultListener(permissionListener);}catch(Throwable ignored){}super.onDestroy();}
+ }
