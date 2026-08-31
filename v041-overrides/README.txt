@@ -1,0 +1,1 @@
+RayNeo VR Look v0.4.1 optional 360-degree turning update. Adds MOTION-ONLY 360 mode: the camera stops carrying when the user's head stops moving, while CONTINUOUS and SNAP remain available per profile.
