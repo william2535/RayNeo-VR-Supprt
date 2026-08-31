@@ -1,4 +1,4 @@
-name: Build RayNeo VR v0.5.5 Stop-On-Hold Comfort Motion APK
+name: Build RayNeo VR v0.6 Stereo Depth Lab APK
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
-      - name: Assemble v0.5.5 source tree
+      - name: Assemble v0.6 source tree
         run: |
           rm -rf project
           mkdir project
@@ -44,43 +44,40 @@ jobs:
           cp v031-overrides/InputBridgeService.java project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
           cp v031-overrides/IInputBridge.aidl project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
 
-          # Working v0.4 / v0.4.1 VR-look stack.
+          # Proven VR-look stack through v0.5.5.
           gzip -dc v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java > project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           gzip -dc v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java > project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           cp v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/Tracker.java project/app/src/main/java/com/willflood/rayneovrcontroller/Tracker.java
           patch -d project -p1 < v041-overrides/vrlook-v041.patch
-
-          # Native SBS visual layer.
           patch -d project -p1 < v05-overrides/v05-main.patch
           python3 v051-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-
-          # v0.5.3 controller mapping + upright SBS fixes.
           patch -d project -p1 < v053-overrides/v053-controller.patch
-
-          # v0.5.4 edge-only 360 groundwork.
           python3 v054-overrides/patch_controller.py project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           python3 v054-overrides/patch_ui.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-
-          # v0.5.5: normal head-look stops when the head stops; quick moves are speed-capped.
           python3 v055-overrides/patch_controller.py project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           python3 v055-overrides/patch_ui.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
+          # v0.6: stereo plane controls only; do not change the working input mixer.
+          python3 v060-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          cp v060-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          cp v060-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
+
           # Keep the proven Shizuku bridge generation unchanged.
           perl -0pi -e 's/\.version\(\d+\)/.version(6)/' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          sed -i 's/RAYNEO VR v0.5.1/RAYNEO VR v0.5.5/g' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          sed -i 's/RAYNEO VR v0.5.1/RAYNEO VR v0.6/g' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
-          cp v055-overrides/app/build.gradle project/app/build.gradle
+          cp v060-overrides/app/build.gradle project/app/build.gradle
           cp v051-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
-          sed -i 's/RayNeo VR v0.5.1 Native SBS/RayNeo VR v0.5.5 Native SBS/g' project/app/src/main/AndroidManifest.xml
-          cp v051-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          cp v051-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
-          sed -i 's/v0\.5\.1/v0.5.5/g' project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
+          sed -i 's/RayNeo VR v0.5.1 Native SBS/RayNeo VR v0.6 Stereo Depth Lab/g' project/app/src/main/AndroidManifest.xml
 
-          # SurfaceTexture orientation fix retained from v0.5.3.
-          patch -d project -p1 < v053-overrides/v053-sbs-orientation.patch
-
-          grep -n "versionName '0.5.5-stop-on-hold-comfort-motion'" project/app/build.gradle
-          grep -n "RAYNEO VR v0.5.5" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          # Build-time invariants: v0.6 stereo + every previously proven repair.
+          grep -n "versionName '0.6-stereo-depth-lab'" project/app/build.gradle
+          grep -n "RAYNEO VR v0.6" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -F "AIR 4 PRO STEREO DEPTH LAB v0.6" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -F "EXTRA_SEPARATION_PX" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -F "setStereoSettings" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -F "uniform vec2 uEyeOffset" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -F "ACTION_CONFIG" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
           grep -F "COMFORT MOTION (recommended) — stops when head stops" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F "x=comfortMotion(rawRateX);y=comfortMotion(rawRateY);" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           grep -F "32.0-stop" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
@@ -88,19 +85,18 @@ jobs:
           grep -F "boolean androidTriggerAxes=supported(ABS_GAS)&&supported(ABS_BRAKE);" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           grep -F "emit_ev(fd, EV_ABS, ABS_BRAKE, lt);" project/app/src/main/cpp/uinput_jni.c
           grep -F "emit_ev(fd, EV_ABS, ABS_GAS, rt);" project/app/src/main/cpp/uinput_jni.c
-          grep -F "SurfaceTexture.getTransformMatrix() already supplies" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -n "killStaleBridgeSiblings\|EBUSY" project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
           grep -n "16777114" project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
           grep -n "SbsMirrorService\|FOREGROUND_SERVICE_MEDIA_PROJECTION\|ShizukuProvider" project/app/src/main/AndroidManifest.xml
 
-      - name: Build v0.5.5 APK
+      - name: Build v0.6 APK
         run: gradle -p project :app:assembleDebug --stacktrace
 
-      - name: Verify v0.5.5 package
+      - name: Verify v0.6 package
         run: |
           APK=project/app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.5.5-stop-on-hold-comfort-motion'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.6-stereo-depth-lab'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -q "SbsMirrorService"
           if ! grep -R -q "rikka.shizuku.ShizukuProvider" project/app/build/intermediates/merged_manifest project/app/build/intermediates/merged_manifests 2>/dev/null; then
             echo "ShizukuProvider missing from merged manifest"
@@ -110,22 +106,20 @@ jobs:
           grep -q "16777114" project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
           grep -q "androidTriggerAxes" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           grep -Fq "x=comfortMotion(rawRateX);y=comfortMotion(rawRateY);" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
-          grep -Fq "32.0-stop" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
-          grep -Fq "yawLimit*0.94" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
-          grep -Fq "emit_ev(fd, EV_ABS, ABS_BRAKE, lt);" project/app/src/main/cpp/uinput_jni.c
-          grep -Fq "emit_ev(fd, EV_ABS, ABS_GAS, rt);" project/app/src/main/cpp/uinput_jni.c
-          grep -q "SurfaceTexture.getTransformMatrix() already supplies" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          echo "v0.5.5 stop-on-hold comfort motion package verified"
+          grep -Fq "setStereoSettings" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -Fq "ACTION_CONFIG" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
+          grep -Fq "EXTRA_SEPARATION_PX" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          echo "v0.6 stereo depth lab package verified"
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.5.5-STOP-ON-HOLD-COMFORT-MOTION.apk
-          ls -lh output/RayNeo-VR-Controller-v0.5.5-STOP-ON-HOLD-COMFORT-MOTION.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.6-STEREO-DEPTH-LAB.apk
+          ls -lh output/RayNeo-VR-Controller-v0.6-STEREO-DEPTH-LAB.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RayNeo-VR-Controller-v0.5.5-STOP-ON-HOLD-COMFORT-MOTION-APK
-          path: output/RayNeo-VR-Controller-v0.5.5-STOP-ON-HOLD-COMFORT-MOTION.apk
+          name: RayNeo-VR-Controller-v0.6-STEREO-DEPTH-LAB-APK
+          path: output/RayNeo-VR-Controller-v0.6-STEREO-DEPTH-LAB.apk
           if-no-files-found: error
