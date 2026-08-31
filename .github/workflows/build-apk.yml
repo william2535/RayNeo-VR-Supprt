@@ -1,4 +1,4 @@
-name: Build RayNeo VR v0.7.2 Frame Drain Stability APK
+name: Build RayNeo VR v0.7.3 Full Display Capture APK
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
-      - name: Assemble v0.7.2 source tree
+      - name: Assemble v0.7.3 source tree
         run: |
           rm -rf project
           mkdir project
@@ -61,12 +61,13 @@ jobs:
           python3 v070-overrides/patch_gpu.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           cp v070-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
 
-          # v0.7.1: 60 Hz presentation, ~8 Hz MiDaS, display hotplug recovery.
+          # v0.7.1/v0.7.2 stability protections.
           python3 v071-overrides/patch_renderer.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           python3 v071-overrides/patch_service.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
-
-          # v0.7.2: never drop the only SurfaceTexture wake-up while rate limiting.
           python3 v072-overrides/patch_renderer.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+
+          # v0.7.3: Android 14+ must capture the whole default display, not this app only.
+          python3 v073-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
           mkdir -p project/app/src/main/assets
           curl -L --fail --retry 3 --retry-delay 2 \
@@ -75,25 +76,19 @@ jobs:
           test $(stat -c%s project/app/src/main/assets/midas_small_256_fp16.tflite) -gt 30000000
 
           perl -0pi -e 's/\.version\(\d+\)/.version(6)/' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          sed -i 's/RAYNEO VR v0.5.1/RAYNEO VR v0.7.2/g' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          sed -i 's/RAYNEO VR v0.5.1/RAYNEO VR v0.7.3/g' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
-          cp v072-overrides/app/build.gradle project/app/build.gradle
+          cp v073-overrides/app/build.gradle project/app/build.gradle
           cp v051-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
-          sed -i 's/RayNeo VR v0.5.1 Native SBS/RayNeo VR v0.7.2 AI Depth Stability/g' project/app/src/main/AndroidManifest.xml
+          sed -i 's/RayNeo VR v0.5.1 Native SBS/RayNeo VR v0.7.3 Full Display/g' project/app/src/main/AndroidManifest.xml
 
-          grep -n "versionName '0.7.2-ai-depth-stability-drain'" project/app/build.gradle
+          grep -n "versionName '0.7.3-full-display-capture'" project/app/build.gradle
           grep -F "tensorflow-lite-gpu:2.14.0" project/app/build.gradle
-          grep -n "RAYNEO VR v0.7.2" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          grep -F "AIR 4 PRO AI DEPTH v0.7" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          grep -F "org.tensorflow.lite.gpu.GpuDelegate" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -F "MIN_RENDER_NS=16_666_667L" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -F "MIN_DEPTH_NS=125_000_000L" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -n "RAYNEO VR v0.7.3" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -F "MediaProjectionConfig.createConfigForDefaultDisplay()" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -F "ENTIRE SCREEN capture forced" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F "requestPacedRender()" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -F "owner.postDelayed" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -F "SurfaceTexture may coalesce callbacks" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          ! grep -Fq "if(now-lastRenderRequestNs>=MIN_RENDER_NS)" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -F "nowNs-lastDepthCaptureNs>=MIN_DEPTH_NS" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -F "RAYNEO DISPLAY LINK RESET" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
+          grep -F "MIN_DEPTH_NS=125_000_000L" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -F "RAYNEO RECONNECTED" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
           grep -F "COMFORT MOTION (recommended) — stops when head stops" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F "x=comfortMotion(rawRateX);y=comfortMotion(rawRateY);" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
@@ -103,32 +98,32 @@ jobs:
           grep -n "killStaleBridgeSiblings\|EBUSY" project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
           grep -n "16777114" project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
 
-      - name: Build v0.7.2 APK
+      - name: Build v0.7.3 APK
         run: gradle -p project :app:assembleDebug --stacktrace
 
-      - name: Verify v0.7.2 package
+      - name: Verify v0.7.3 package
         run: |
           APK=project/app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.7.2-ai-depth-stability-drain'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.7.3-full-display-capture'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -q "SbsMirrorService"
           unzip -l "$APK" | grep -q 'assets/midas_small_256_fp16.tflite'
+          grep -Fq "MediaProjectionConfig.createConfigForDefaultDisplay()" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -Fq "requestPacedRender()" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -Fq "owner.postDelayed" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -Fq "RAYNEO RECONNECTED" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
           grep -Fq "org.tensorflow.lite.gpu.GpuDelegate" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -q "killStaleBridgeSiblings" project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
-          echo "v0.7.2 guaranteed frame-drain stability package verified"
+          echo "v0.7.3 full-display capture package verified"
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.7.2-AI-DEPTH-STABILITY-DRAIN.apk
-          ls -lh output/RayNeo-VR-Controller-v0.7.2-AI-DEPTH-STABILITY-DRAIN.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.7.3-FULL-DISPLAY-CAPTURE.apk
+          ls -lh output/RayNeo-VR-Controller-v0.7.3-FULL-DISPLAY-CAPTURE.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RayNeo-VR-Controller-v0.7.2-AI-DEPTH-STABILITY-DRAIN-APK
-          path: output/RayNeo-VR-Controller-v0.7.2-AI-DEPTH-STABILITY-DRAIN.apk
+          name: RayNeo-VR-Controller-v0.7.3-FULL-DISPLAY-CAPTURE-APK
+          path: output/RayNeo-VR-Controller-v0.7.3-FULL-DISPLAY-CAPTURE.apk
           if-no-files-found: error
