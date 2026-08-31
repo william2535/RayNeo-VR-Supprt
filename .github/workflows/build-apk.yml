@@ -1,4 +1,4 @@
-name: Build RayNeo VR v0.5.1 Native SBS APK
+name: Build RayNeo VR v0.5.2 Native SBS Busy Fix APK
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
-      - name: Assemble v0.5.1 Native SBS source tree
+      - name: Assemble v0.5.2 Native SBS + busy-fix source tree
         run: |
           rm -rf project
           mkdir project
@@ -42,6 +42,11 @@ jobs:
           sed -i '/import androidx.annotation.Keep;/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
           sed -i '/^[[:space:]]*@Keep[[:space:]]*$/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
 
+          # Restore the proven v0.3.1 Shizuku lifecycle / EBUSY repair layer.
+          cp v031-overrides/InputBridgeService.java project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          cp v031-overrides/IInputBridge.aidl project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
+
+          # Working v0.4 / v0.4.1 head-look stack.
           gzip -dc v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java > project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           gzip -dc v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java > project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           cp v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/Tracker.java project/app/src/main/java/com/willflood/rayneovrcontroller/Tracker.java
@@ -50,44 +55,54 @@ jobs:
           patch -d project -p1 < v05-overrides/v05-main.patch
           python3 v051-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
-          cp v051-overrides/app/build.gradle project/app/build.gradle
+          # Force a fresh Shizuku UserService generation instead of reusing an old v2 bridge.
+          sed -i 's/\.version(2)/.version(5)/g' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          sed -i 's/RAYNEO VR v0.5.1/RAYNEO VR v0.5.2/g' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+
+          cp v052-overrides/app/build.gradle project/app/build.gradle
           cp v051-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
+          sed -i 's/RayNeo VR v0.5.1 Native SBS/RayNeo VR v0.5.2 Native SBS/g' project/app/src/main/AndroidManifest.xml
           cp v051-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           cp v051-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
 
-          grep -n "versionName '0.5.1-native-sbs'" project/app/build.gradle
-          grep -n "RAYNEO VR v0.5.1" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -n "versionName '0.5.2-native-sbs-busy-fix'" project/app/build.gradle
+          grep -n "RAYNEO VR v0.5.2" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -n "\.version(5)" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -n "CHECK AIR 4 PRO DISPLAY MODE\|probeNativeSbs" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -n "MOTION-ONLY 360" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -n "TURN_MOTION_ONLY\|movingOutward" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
+          grep -n "killStaleBridgeSiblings\|EBUSY" project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          grep -n "16777114" project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
           grep -n "findBestExternalDisplay\|NATIVE SBS WIDE MODE DETECTED\|RayNeo-v0.5.1-Native-SBS" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
           grep -n "LEFT EYE.*RIGHT EYE\|drawEye" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -n "SbsMirrorService\|FOREGROUND_SERVICE_MEDIA_PROJECTION\|ShizukuProvider" project/app/src/main/AndroidManifest.xml
 
-      - name: Build v0.5.1 APK
+      - name: Build v0.5.2 APK
         run: gradle -p project :app:assembleDebug --stacktrace
 
-      - name: Verify v0.5.1 package
+      - name: Verify v0.5.2 package
         run: |
           APK=project/app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.5.1-native-sbs'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.5.2-native-sbs-busy-fix'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -q "SbsMirrorService"
           if ! grep -R -q "rikka.shizuku.ShizukuProvider" project/app/build/intermediates/merged_manifest project/app/build/intermediates/merged_manifests 2>/dev/null; then
             echo "ShizukuProvider missing from merged manifest"
             exit 1
           fi
-          echo "v0.5.1 Native SBS package verified"
+          grep -q "killStaleBridgeSiblings" project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          grep -q "16777114" project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
+          echo "v0.5.2 Native SBS + Shizuku busy fix package verified"
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.5.1-NATIVE-SBS.apk
-          ls -lh output/RayNeo-VR-Controller-v0.5.1-NATIVE-SBS.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.5.2-NATIVE-SBS-BUSY-FIX.apk
+          ls -lh output/RayNeo-VR-Controller-v0.5.2-NATIVE-SBS-BUSY-FIX.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RayNeo-VR-Controller-v0.5.1-NATIVE-SBS-APK
-          path: output/RayNeo-VR-Controller-v0.5.1-NATIVE-SBS.apk
+          name: RayNeo-VR-Controller-v0.5.2-NATIVE-SBS-BUSY-FIX-APK
+          path: output/RayNeo-VR-Controller-v0.5.2-NATIVE-SBS-BUSY-FIX.apk
           if-no-files-found: error
