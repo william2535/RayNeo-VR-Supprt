@@ -55,9 +55,11 @@ public class SbsMirrorService extends Service {
             return START_NOT_STICKY;
         }
         if(ACTION_CONFIG.equals(action)){
+            boolean active=glView!=null;
             readStereo(intent);
             applyStereo();
-            broadcast(stereoSummary("STEREO LIVE"));
+            broadcast(stereoSummary(active?"STEREO LIVE":"STEREO PRESET SAVED"));
+            if(!active)stopSelf(startId);
             return START_NOT_STICKY;
         }
         if(!ACTION_START.equals(action))return START_NOT_STICKY;
