@@ -43,8 +43,8 @@ jobs:
           sed -i '/^[[:space:]]*@Keep[[:space:]]*$/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
           cp v04-overrides/app/build.gradle project/app/build.gradle
           cp v04-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
-          cp v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          cp v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
+          gzip -dc v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java > project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          gzip -dc v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java > project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           cp v04-overrides/app/src/main/java/com/willflood/rayneovrcontroller/Tracker.java project/app/src/main/java/com/willflood/rayneovrcontroller/Tracker.java
           grep -n "versionName '0.4-vr-look'" project/app/build.gradle
           grep -n "RAYNEO VR LOOK v0.4" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
