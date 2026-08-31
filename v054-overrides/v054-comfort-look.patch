@@ -1,0 +1,88 @@
+--- a/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
++++ b/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
+@@ -56,14 +56,14 @@
+ 
+     // VR Look configuration.
+     private volatile int mode=MODE_HYBRID, axisMode=0, currentProfile=0;
+-    private volatile double maxRate=90.0, fullAngle=35.0, vrGain=1.0, hybridRateWeight=0.70, responseCurve=1.30;
++    private volatile double maxRate=90.0, fullAngle=35.0, vrGain=1.0, hybridRateWeight=0.0, responseCurve=1.30;
+     private volatile double pitchLimit=45.0, yawLimit=80.0;
+     private volatile boolean invertX=false, invertY=false, rollSteer=false;
+     private volatile double rollFullAngle=30.0;
+     private volatile boolean headEnabled=true, clutchHeld=false;
+     private volatile boolean recenterShortcut=true, clutchShortcut=true;
+     private volatile int turnMode=TURN_CONTINUOUS;
+-    private volatile double turnThreshold=40.0, turnStrength=0.55;
++    private volatile double turnThreshold=75.0, turnStrength=0.55;
+     private volatile int snapMs=130;
+     private volatile boolean overlayEnabled=false;
+@@ -133,7 +133,10 @@
+         recenterShortcut=i.getBooleanExtra("recenterShortcut",recenterShortcut);
+         clutchShortcut=i.getBooleanExtra("clutchShortcut",clutchShortcut);
+         turnMode=i.getIntExtra("turnMode",turnMode);
+-        turnThreshold=i.getDoubleExtra("turnThreshold",turnThreshold);
++        // v0.5.4: 360 assist is an EDGE action, not a normal-look action.
++        // Even old profiles saved at 40 degrees cannot activate it until the
++        // user is essentially at the configured yaw limit.
++        turnThreshold=Math.max(i.getDoubleExtra("turnThreshold",turnThreshold),yawLimit*0.94);
+         turnStrength=clamp(i.getDoubleExtra("turnStrength",turnStrength),0,1.5);
+         snapMs=clampi(i.getIntExtra("snapMs",snapMs),60,400);
+         overlayEnabled=i.getBooleanExtra("overlayEnabled",overlayEnabled);
+@@ -192,14 +195,17 @@
+         double rateX=rate[1]/Math.max(10.0,maxRate), rateY=rate[0]/Math.max(10.0,maxRate);
+         double angleX=yawForAngle/Math.max(5.0,fullAngle), angleY=pitchAngle/Math.max(5.0,fullAngle);
+         double x,y;
+         if(mode==MODE_RATE){x=rateX;y=rateY;}
+-        else if(mode==MODE_ANGLE){x=angleX;y=angleY;}
+-        else {x=hybridRateWeight*rateX+(1.0-hybridRateWeight)*angleX;y=hybridRateWeight*rateY+(1.0-hybridRateWeight)*angleY;}
++        else {
++            // v0.5.4 COMFORT LOOK: remove the velocity boost from HYBRID.
++            // Fast head flicks and slow head turns to the same angle now ask
++            // for the same stick output, avoiding speed surges over cloud latency.
++            x=angleX;y=angleY;
++        }
+ 
+         x=shape(x,responseCurve)*vrGain;
+         y=shape(y,responseCurve)*vrGain;
+ 
+-        if((turnMode==TURN_CONTINUOUS || turnMode==TURN_MOTION_ONLY) && Math.abs(yawAngle)>turnThreshold){
++        double edgeThreshold=Math.max(turnThreshold,yawLimit*0.94);
++        if((turnMode==TURN_CONTINUOUS || turnMode==TURN_MOTION_ONLY) && Math.abs(yawAngle)>edgeThreshold){
+             // CONTINUOUS keeps turning while you hold your head beyond the edge.
+             // MOTION-ONLY gives the same 360-degree body-turn behaviour, but only while
+             // the head is still moving farther into the turn. Holding still stops camera carry.
+@@ -206,20 +212,20 @@
+                     && Math.signum(rate[1])==Math.signum(yawAngle);
+             if(turnMode==TURN_CONTINUOUS || movingOutward){
+-                double over=(Math.abs(yawAngle)-turnThreshold)/Math.max(15.0,turnThreshold);
++                double over=(Math.abs(yawAngle)-edgeThreshold)/Math.max(8.0,yawLimit-edgeThreshold);
+                 x+=Math.signum(yawAngle)*turnStrength*clamp(over,0,1);
+                 tracker.bleedYaw((8.0+26.0*turnStrength)*dt);
+             }
+         } else if(turnMode==TURN_SNAP){
+             if(now<snapUntilNs)x+=snapDir*turnStrength;
+-            if(Math.abs(yawAngle)>turnThreshold && !snapLatch){
++            if(Math.abs(yawAngle)>edgeThreshold && !snapLatch){
+                 snapDir=yawAngle>=0?1:-1;
+                 snapUntilNs=now+(long)snapMs*1_000_000L;
+                 snapLatch=true;
+                 tracker.bleedYaw(Math.min(32.0,Math.abs(yawAngle)*0.65));
+                 x+=snapDir*turnStrength;
+             }
+-            if(Math.abs(yawAngle)<turnThreshold*0.48)snapLatch=false;
++            if(Math.abs(yawAngle)<edgeThreshold*0.72)snapLatch=false;
+         }
+@@ -323,12 +329,13 @@
+         currentProfile=clampi(slot,0,PROFILE_NAMES.length-1);
+         int defRate=currentProfile==3?120:90, defSmooth=currentProfile==2?28:(currentProfile==3?45:35), defCurve=currentProfile==3?115:130;
+         mode=prefs.getInt(pk("mode"),MODE_HYBRID);axisMode=prefs.getInt(pk("axis"),0);vrGain=prefs.getInt(pk("gain"),100)/100.0;
+-        maxRate=prefs.getInt(pk("rate"),prefs.getInt("rate",defRate));fullAngle=prefs.getInt(pk("angle"),prefs.getInt("angle",35));hybridRateWeight=prefs.getInt(pk("hybrid"),70)/100.0;
++        maxRate=prefs.getInt(pk("rate"),prefs.getInt("rate",defRate));fullAngle=prefs.getInt(pk("angle"),prefs.getInt("angle",35));hybridRateWeight=0.0;
+         responseCurve=prefs.getInt(pk("curve"),defCurve)/100.0;pitchLimit=prefs.getInt(pk("pitch"),45);yawLimit=prefs.getInt(pk("yaw"),80);
+         tracker.deadzone=prefs.getInt(pk("dead"),prefs.getInt("dead",20))/10.0;tracker.smooth=prefs.getInt(pk("smooth"),prefs.getInt("smooth",defSmooth))/100.0;tracker.autoDrift=prefs.getBoolean(pk("drift"),true);
+         invertX=prefs.getBoolean(pk("invx"),prefs.getBoolean("inv_x",false));invertY=prefs.getBoolean(pk("invy"),prefs.getBoolean("inv_y",false));
+         recenterShortcut=prefs.getBoolean(pk("recShortcut"),true);clutchShortcut=prefs.getBoolean(pk("clutchShortcut"),true);
+-        turnMode=prefs.getInt(pk("turnMode"),TURN_CONTINUOUS);turnThreshold=prefs.getInt(pk("turnThreshold"),40);turnStrength=prefs.getInt(pk("turnStrength"),55)/100.0;snapMs=prefs.getInt(pk("snapMs"),130);overlayEnabled=prefs.getBoolean(pk("overlay"),false);
++        turnMode=prefs.getInt(pk("turnMode"),TURN_CONTINUOUS);turnThreshold=Math.max(prefs.getInt(pk("turnThreshold"),75),yawLimit*0.94);turnStrength=prefs.getInt(pk("turnStrength"),55)/100.0;snapMs=prefs.getInt(pk("snapMs"),130);overlayEnabled=prefs.getBoolean(pk("overlay"),false);
+         refreshHud();updateNotification(statusText());
+     }
