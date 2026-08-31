@@ -1,4 +1,4 @@
-name: Build RayNeo VR v0.5 SBS Lab APK
+name: Build RayNeo VR v0.5.1 Native SBS APK
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
-      - name: Assemble v0.5 SBS Lab source tree
+      - name: Assemble v0.5.1 Native SBS source tree
         run: |
           rm -rf project
           mkdir project
@@ -48,42 +48,46 @@ jobs:
 
           patch -d project -p1 < v041-overrides/vrlook-v041.patch
           patch -d project -p1 < v05-overrides/v05-main.patch
-          cp v05-overrides/app/build.gradle project/app/build.gradle
-          cp v05-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
-          cp v05-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          cp v05-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
+          patch -d project -p1 < v051-overrides/v051-main.patch
 
-          grep -n "versionName '0.5-sbs-lab'" project/app/build.gradle
-          grep -n "RAYNEO VR v0.5" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          cp v051-overrides/app/build.gradle project/app/build.gradle
+          cp v051-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
+          cp v051-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          cp v051-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
+
+          grep -n "versionName '0.5.1-native-sbs'" project/app/build.gradle
+          grep -n "RAYNEO VR v0.5.1" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -n "CHECK AIR 4 PRO DISPLAY MODE\|probeNativeSbs" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -n "MOTION-ONLY 360" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -n "TURN_MOTION_ONLY\|movingOutward" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
-          grep -n "DISPLAY_CATEGORY_PRESENTATION\|createVirtualDisplay" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
+          grep -n "findBestExternalDisplay\|NATIVE SBS WIDE MODE DETECTED\|RayNeo-v0.5.1-Native-SBS" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
+          grep -n "LEFT EYE.*RIGHT EYE\|drawEye" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -n "SbsMirrorService\|FOREGROUND_SERVICE_MEDIA_PROJECTION\|ShizukuProvider" project/app/src/main/AndroidManifest.xml
 
-      - name: Build v0.5 APK
+      - name: Build v0.5.1 APK
         run: gradle -p project :app:assembleDebug --stacktrace
 
-      - name: Verify v0.5 package
+      - name: Verify v0.5.1 package
         run: |
           APK=project/app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.5-sbs-lab'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.5.1-native-sbs'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -q "SbsMirrorService"
           if ! grep -R -q "rikka.shizuku.ShizukuProvider" project/app/build/intermediates/merged_manifest project/app/build/intermediates/merged_manifests 2>/dev/null; then
             echo "ShizukuProvider missing from merged manifest"
             exit 1
           fi
-          echo "v0.5 SBS Lab package verified"
+          echo "v0.5.1 Native SBS package verified"
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.5-SBS-LAB.apk
-          ls -lh output/RayNeo-VR-Controller-v0.5-SBS-LAB.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.5.1-NATIVE-SBS.apk
+          ls -lh output/RayNeo-VR-Controller-v0.5.1-NATIVE-SBS.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RayNeo-VR-Controller-v0.5-SBS-LAB-APK
-          path: output/RayNeo-VR-Controller-v0.5-SBS-LAB.apk
+          name: RayNeo-VR-Controller-v0.5.1-NATIVE-SBS-APK
+          path: output/RayNeo-VR-Controller-v0.5.1-NATIVE-SBS.apk
           if-no-files-found: error
