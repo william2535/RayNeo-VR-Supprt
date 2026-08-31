@@ -1,4 +1,4 @@
-name: Build RayNeo VR v0.7.3 Full Display Capture APK
+name: Build RayNeo VR v0.7.4 CPU Safe Depth APK
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
-      - name: Assemble v0.7.3 source tree
+      - name: Assemble v0.7.4 source tree
         run: |
           rm -rf project
           mkdir project
@@ -58,16 +58,21 @@ jobs:
           python3 v060-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           python3 v070-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           cp v070-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          python3 v070-overrides/patch_gpu.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           cp v070-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
 
-          # v0.7.1/v0.7.2 stability protections.
+          # Keep v0.7.2 guaranteed frame draining and external-display recovery,
+          # but DO NOT attach the TensorFlow GPU delegate.
           python3 v071-overrides/patch_renderer.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           python3 v071-overrides/patch_service.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
           python3 v072-overrides/patch_renderer.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
 
-          # v0.7.3: Android 14+ must capture the whole default display, not this app only.
+          # Android 14+ full-display capture fix.
           python3 v073-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+
+          # v0.7.4 isolates the suspected GPU/display-driver contention:
+          # MiDaS on one CPU thread at ~2 Hz, with AI forced OFF on app launch.
+          python3 v074-overrides/patch_renderer.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          python3 v074-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
           mkdir -p project/app/src/main/assets
           curl -L --fail --retry 3 --retry-delay 2 \
@@ -76,19 +81,25 @@ jobs:
           test $(stat -c%s project/app/src/main/assets/midas_small_256_fp16.tflite) -gt 30000000
 
           perl -0pi -e 's/\.version\(\d+\)/.version(6)/' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          sed -i 's/RAYNEO VR v0.5.1/RAYNEO VR v0.7.3/g' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          sed -i 's/RAYNEO VR v0.5.1/RAYNEO VR v0.7.4/g' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
-          cp v073-overrides/app/build.gradle project/app/build.gradle
+          cp v074-overrides/app/build.gradle project/app/build.gradle
           cp v051-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
-          sed -i 's/RayNeo VR v0.5.1 Native SBS/RayNeo VR v0.7.3 Full Display/g' project/app/src/main/AndroidManifest.xml
+          sed -i 's/RayNeo VR v0.5.1 Native SBS/RayNeo VR v0.7.4 CPU Safe Depth/g' project/app/src/main/AndroidManifest.xml
 
-          grep -n "versionName '0.7.3-full-display-capture'" project/app/build.gradle
-          grep -F "tensorflow-lite-gpu:2.14.0" project/app/build.gradle
-          grep -n "RAYNEO VR v0.7.3" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          # Build-time invariants.
+          grep -n "versionName '0.7.4-cpu-safe-depth'" project/app/build.gradle
+          grep -F "tensorflow-lite:2.14.0" project/app/build.gradle
+          ! grep -Fq "tensorflow-lite-gpu" project/app/build.gradle
+          ! grep -Fq "org.tensorflow.lite.gpu.GpuDelegate" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -n "RAYNEO VR v0.7.4" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F "MediaProjectionConfig.createConfigForDefaultDisplay()" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          grep -F "ENTIRE SCREEN capture forced" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -F "AI GENTLE CPU" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -F 'sbsAiDepth=bar(root,0,100,0)' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -F "MIN_DEPTH_NS=500_000_000L" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -F "options.setNumThreads(1)" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -F "MiDaS CPU-SAFE depth ready" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -F "requestPacedRender()" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -F "MIN_DEPTH_NS=125_000_000L" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -F "RAYNEO RECONNECTED" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
           grep -F "COMFORT MOTION (recommended) — stops when head stops" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F "x=comfortMotion(rawRateX);y=comfortMotion(rawRateY);" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
@@ -98,32 +109,33 @@ jobs:
           grep -n "killStaleBridgeSiblings\|EBUSY" project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
           grep -n "16777114" project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
 
-      - name: Build v0.7.3 APK
+      - name: Build v0.7.4 APK
         run: gradle -p project :app:assembleDebug --stacktrace
 
-      - name: Verify v0.7.3 package
+      - name: Verify v0.7.4 package
         run: |
           APK=project/app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.7.3-full-display-capture'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.7.4-cpu-safe-depth'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -q "SbsMirrorService"
           unzip -l "$APK" | grep -q 'assets/midas_small_256_fp16.tflite'
           grep -Fq "MediaProjectionConfig.createConfigForDefaultDisplay()" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          grep -Fq "requestPacedRender()" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -Fq "MIN_DEPTH_NS=500_000_000L" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -Fq "options.setNumThreads(1)" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          ! grep -Fq "GpuDelegate" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -Fq "RAYNEO RECONNECTED" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
-          grep -Fq "org.tensorflow.lite.gpu.GpuDelegate" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -q "killStaleBridgeSiblings" project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
-          echo "v0.7.3 full-display capture package verified"
+          echo "v0.7.4 CPU-safe depth package verified"
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.7.3-FULL-DISPLAY-CAPTURE.apk
-          ls -lh output/RayNeo-VR-Controller-v0.7.3-FULL-DISPLAY-CAPTURE.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.7.4-CPU-SAFE-DEPTH.apk
+          ls -lh output/RayNeo-VR-Controller-v0.7.4-CPU-SAFE-DEPTH.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RayNeo-VR-Controller-v0.7.3-FULL-DISPLAY-CAPTURE-APK
-          path: output/RayNeo-VR-Controller-v0.7.3-FULL-DISPLAY-CAPTURE.apk
+          name: RayNeo-VR-Controller-v0.7.4-CPU-SAFE-DEPTH-APK
+          path: output/RayNeo-VR-Controller-v0.7.4-CPU-SAFE-DEPTH.apk
           if-no-files-found: error
