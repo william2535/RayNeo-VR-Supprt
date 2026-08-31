@@ -1,0 +1,61 @@
+--- a/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
++++ b/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+@@ -66,7 +66,7 @@
+ 
+     private void buildUi(){
+         ScrollView sv=new ScrollView(this);LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(24,20,24,48);sv.addView(root);
+-        TextView title=new TextView(this);title.setText("RAYNEO VR LOOK v0.4");title.setTextSize(25);title.setTextColor(Color.BLACK);title.setTypeface(null,1);root.addView(title);
++        TextView title=new TextView(this);title.setText("RAYNEO VR LOOK v0.4.1");title.setTextSize(25);title.setTextColor(Color.BLACK);title.setTypeface(null,1);root.addView(title);
+         TextView sub=new TextView(this);sub.setText("Daily Driver bridge + hybrid VR head-look, profiles, comfort turning, controller shortcuts and background HUD.");sub.setTextSize(14);sub.setPadding(0,4,0,10);root.addView(sub);
+         dailyDriver=switcher(root,"DAILY DRIVER AUTO • reconnect + grab + passthrough + head mix");
+         status=box(root,"Checking RayNeo…",0xffe4e7e0,Color.BLACK);
+@@ -93,8 +93,14 @@
+         smoothLabel=label(root,"Smoothing: 0.35");smooth=bar(root,0,90,35);
+         invX=switcher(root,"Invert horizontal");invY=switcher(root,"Invert vertical");autoDrift=switcher(root,"Automatic still-head drift correction");
+ 
+-        heading(root,"2 • COMFORT TURNING");
+-        turnMode=spinner(root,new String[]{"OFF — pure head look","CONTINUOUS comfort turn (recommended)","SNAP pulse turn (experimental)"});
++        heading(root,"2 • OPTIONAL 360° COMFORT TURNING");
++        turnMode=spinner(root,new String[]{
++                "360° OFF — pure head look",
++                "CONTINUOUS 360° — keeps carrying while held past edge",
++                "SNAP 360° — one pulse each edge crossing",
++                "MOTION-ONLY 360° — stops when your head stops"
++        });
++        box(root,"360° is optional. MOTION-ONLY keeps the useful endless-turn idea but removes the 'carry on' effect when you hold your head still at the edge.",0xfff3efe3,Color.BLACK);
+         turnThresholdLabel=label(root,"Turn assist starts at 40° yaw");turnThreshold=bar(root,20,70,40);
+         turnStrengthLabel=label(root,"Turn assist strength: 55%");turnStrength=bar(root,10,100,55);
+         snapLabel=label(root,"Snap pulse: 130 ms");snapMs=bar(root,60,300,130);
+--- a/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
++++ b/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
+@@ -27,7 +27,7 @@
+     public static final String ACTION_PROFILE_NEXT="com.willflood.rayneovrcontroller.PROFILE_NEXT";
+ 
+     public static final int MODE_HYBRID=0, MODE_RATE=1, MODE_ANGLE=2;
+-    public static final int TURN_OFF=0, TURN_CONTINUOUS=1, TURN_SNAP=2;
++    public static final int TURN_OFF=0, TURN_CONTINUOUS=1, TURN_SNAP=2, TURN_MOTION_ONLY=3;
+ 
+     public static final int BTN_A=0x130, BTN_B=0x131, BTN_X=0x133, BTN_Y=0x134;
+     public static final int BTN_L1=0x136, BTN_R1=0x137, BTN_SELECT=0x13a, BTN_START=0x13b;
+@@ -199,10 +199,17 @@
+         x=shape(x,responseCurve)*vrGain;
+         y=shape(y,responseCurve)*vrGain;
+ 
+-        if(turnMode==TURN_CONTINUOUS && Math.abs(yawAngle)>turnThreshold){
+-            double over=(Math.abs(yawAngle)-turnThreshold)/Math.max(15.0,turnThreshold);
+-            x+=Math.signum(yawAngle)*turnStrength*clamp(over,0,1);
+-            tracker.bleedYaw((8.0+26.0*turnStrength)*dt);
++        if((turnMode==TURN_CONTINUOUS || turnMode==TURN_MOTION_ONLY) && Math.abs(yawAngle)>turnThreshold){
++            // CONTINUOUS keeps turning while you hold your head beyond the edge.
++            // MOTION-ONLY gives the same 360-degree body-turn behaviour, but only while
++            // the head is still moving farther into the turn. Holding still stops camera carry.
++            boolean movingOutward=Math.abs(rate[1])>Math.max(2.5,tracker.deadzone)
++                    && Math.signum(rate[1])==Math.signum(yawAngle);
++            if(turnMode==TURN_CONTINUOUS || movingOutward){
++                double over=(Math.abs(yawAngle)-turnThreshold)/Math.max(15.0,turnThreshold);
++                x+=Math.signum(yawAngle)*turnStrength*clamp(over,0,1);
++                tracker.bleedYaw((8.0+26.0*turnStrength)*dt);
++            }
+         } else if(turnMode==TURN_SNAP){
+             if(now<snapUntilNs)x+=snapDir*turnStrength;
+             if(Math.abs(yawAngle)>turnThreshold && !snapLatch){
