@@ -1,4 +1,4 @@
-name: Build RayNeo VR v0.7 AI Depth APK
+name: Build RayNeo VR v0.7 AI Depth GPU APK
 
 on:
   push:
@@ -63,6 +63,7 @@ jobs:
           # v0.7: per-pixel MiDaS depth reconstruction; input mixer remains untouched.
           python3 v070-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           cp v070-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          python3 v070-overrides/patch_gpu.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           cp v070-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
 
           # Bundle the published MiDaS-small 256 fp16 LiteRT/TFLite model.
@@ -80,13 +81,17 @@ jobs:
           cp v051-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
           sed -i 's/RayNeo VR v0.5.1 Native SBS/RayNeo VR v0.7 AI Depth/g' project/app/src/main/AndroidManifest.xml
 
-          # Build-time invariants: AI depth + every previously proven repair.
-          grep -n "versionName '0.7-ai-depth-midas'" project/app/build.gradle
+          # Build-time invariants: AI depth + GPU/fallback + every previously proven repair.
+          grep -n "versionName '0.7-ai-depth-midas-gpu'" project/app/build.gradle
+          grep -F "tensorflow-lite-gpu:2.14.0" project/app/build.gradle
           grep -n "RAYNEO VR v0.7" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F "AIR 4 PRO AI DEPTH v0.7" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F "AI GENTLE" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F "EXTRA_AI_DEPTH_PERCENT" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F "org.tensorflow.lite.Interpreter" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -F "org.tensorflow.lite.gpu.GpuDelegate" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -F "options.addDelegate(gpuDelegate)" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -F "cpu.setUseXNNPACK(false)" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -F "midas_small_256_fp16.tflite" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -F "float disparity=(d-uConvergence)*uDepthStrength*uEyeSign" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -F "ACTION_CONFIG" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
@@ -108,7 +113,7 @@ jobs:
         run: |
           APK=project/app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.7-ai-depth-midas'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.7-ai-depth-midas-gpu'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -q "SbsMirrorService"
           unzip -l "$APK" | grep -q 'assets/midas_small_256_fp16.tflite'
           if ! grep -R -q "rikka.shizuku.ShizukuProvider" project/app/build/intermediates/merged_manifest project/app/build/intermediates/merged_manifests 2>/dev/null; then
@@ -119,20 +124,21 @@ jobs:
           grep -q "16777114" project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
           grep -q "androidTriggerAxes" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           grep -Fq "x=comfortMotion(rawRateX);y=comfortMotion(rawRateY);" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
-          grep -Fq "org.tensorflow.lite.Interpreter" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -Fq "org.tensorflow.lite.gpu.GpuDelegate" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -Fq "cpu.setUseXNNPACK(false)" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -Fq "float disparity=(d-uConvergence)*uDepthStrength*uEyeSign" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -Fq "EXTRA_AI_DEPTH_PERCENT" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
-          echo "v0.7 MiDaS AI depth package verified"
+          echo "v0.7 MiDaS AI depth GPU package verified"
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.7-AI-DEPTH-MIDAS.apk
-          ls -lh output/RayNeo-VR-Controller-v0.7-AI-DEPTH-MIDAS.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.7-AI-DEPTH-MIDAS-GPU.apk
+          ls -lh output/RayNeo-VR-Controller-v0.7-AI-DEPTH-MIDAS-GPU.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RayNeo-VR-Controller-v0.7-AI-DEPTH-MIDAS-APK
-          path: output/RayNeo-VR-Controller-v0.7-AI-DEPTH-MIDAS.apk
+          name: RayNeo-VR-Controller-v0.7-AI-DEPTH-MIDAS-GPU-APK
+          path: output/RayNeo-VR-Controller-v0.7-AI-DEPTH-MIDAS-GPU.apk
           if-no-files-found: error
