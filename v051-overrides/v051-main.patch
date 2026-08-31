@@ -1,0 +1,77 @@
+--- a/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
++++ b/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+@@ -4,6 +4,7 @@
+ import android.content.*;
+ import android.content.pm.PackageManager;
++import android.hardware.display.DisplayManager;
+ import android.hardware.input.InputManager;
+ import android.hardware.usb.*;
+ import android.media.projection.MediaProjectionManager;
+@@ -68,8 +69,8 @@
+ 
+     private void buildUi(){
+         ScrollView sv=new ScrollView(this);LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(24,20,24,48);sv.addView(root);
+-        TextView title=new TextView(this);title.setText("RAYNEO VR v0.5 • SBS LAB");title.setTextSize(25);title.setTextColor(Color.BLACK);title.setTypeface(null,1);root.addView(title);
+-        TextView sub=new TextView(this);sub.setText("v0.4.1 VR Look + experimental live side-by-side visual mirror for RayNeo 3D/SBS testing.");sub.setTextSize(14);sub.setPadding(0,4,0,10);root.addView(sub);
++        TextView title=new TextView(this);title.setText("RAYNEO VR v0.5.1 • NATIVE SBS");title.setTextSize(25);title.setTextColor(Color.BLACK);title.setTypeface(null,1);root.addView(title);
++        TextView sub=new TextView(this);sub.setText("Air 4 Pro native SBS layout + v0.4.1 VR Look. The glasses control SBS mode; Android only supplies LEFT EYE | RIGHT EYE frames.");sub.setTextSize(14);sub.setPadding(0,4,0,10);root.addView(sub);
+         dailyDriver=switcher(root,"DAILY DRIVER AUTO • reconnect + grab + passthrough + head mix");
+         status=box(root,"Checking RayNeo…",0xffe4e7e0,Color.BLACK);
+         deviceInfo=box(root,"ANDROID GAMEPAD: not detected yet",0xffeeeeee,Color.BLACK);
+@@ -126,11 +127,15 @@
+         headMix=switcher(root,"HEAD MIX: add RayNeo aim to physical right stick");
+         bridgeStatus=box(root,"BRIDGE: not grabbed",0xfff0f0f0,Color.BLACK);
+ 
+-        heading(root,"5 • v0.5 SBS VISUAL LAB (EXPERIMENTAL)");
+-        sbsStatus=box(root,"SBS MIRROR: stopped",0xffe7edf3,Color.BLACK);
+-        box(root,"LIVE SBS MIRROR captures the game screen and duplicates it into LEFT + RIGHT eye halves. It prefers the RayNeo as a separate external display (best/no recursion). This first build is MONO SBS: it proves the visual pipeline before real stereo/depth work.",0xfff3efe3,Color.BLACK);
+-        LinearLayout sbsRow=row(root);Button startSbs=button("START LIVE SBS MIRROR",0xff375d84),stopSbs=button("STOP SBS",0xff9e3d36);sbsRow.addView(startSbs,weight());sbsRow.addView(stopSbs,weight());
++        heading(root,"5 • AIR 4 PRO NATIVE SBS");
++        sbsStatus=box(root,"NATIVE SBS: 1) hold MENU + VOL UP on the glasses  2) CHECK DISPLAY MODE  3) START NATIVE SBS MIRROR",0xffe7edf3,Color.BLACK);
++        box(root,"v0.5.1 does NOT switch the glasses into 3D/SBS. The Air 4 Pro already does that in hardware with MENU + VOL UP. This app only captures the game and lays it out as LEFT EYE | RIGHT EYE. The first visual stage is still MONO SBS, so both eyes get the same image while we prove the native pipeline.",0xfff3efe3,Color.BLACK);
++        Button checkSbs=button("CHECK AIR 4 PRO DISPLAY MODE",0xff526b48);root.addView(checkSbs);checkSbs.setOnClickListener(v->probeNativeSbs());
++        LinearLayout sbsRow=row(root);Button startSbs=button("START NATIVE SBS MIRROR",0xff375d84),stopSbs=button("STOP SBS",0xff9e3d36);sbsRow.addView(startSbs,weight());sbsRow.addView(stopSbs,weight());
+         startSbs.setOnClickListener(v->startSbsMirrorFlow());stopSbs.setOnClickListener(v->stopSbsMirror());
+ 
+         heading(root,"6 • LIVE ANDROID INPUT CHECK");
+@@ -222,6 +227,38 @@
+     private void sendConfig(){if(mode==null||axisMode==null)return;try{startService(configured(ControllerService.ACTION_CONFIG));}catch(Exception ignored){}}
+     private void sendAction(String action){try{startService(new Intent(this,ControllerService.class).setAction(action));}catch(Exception ignored){}}
+ 
++    private void probeNativeSbs(){
++        if(sbsStatus==null)return;
++        try{
++            DisplayManager dm=(DisplayManager)getSystemService(DISPLAY_SERVICE);
++            Display[] displays=dm!=null?dm.getDisplays():new Display[0];
++            StringBuilder sb=new StringBuilder();
++            boolean wide=false,external=false;
++            for(Display d:displays){
++                if(d==null)continue;
++                Display.Mode m=d.getMode();
++                int w=m.getPhysicalWidth(),h=m.getPhysicalHeight();
++                int longSide=Math.max(w,h),shortSide=Math.max(1,Math.min(w,h));
++                double ratio=longSide/(double)shortSide;
++                boolean isWide=ratio>=2.60 && longSide>=2500;
++                if(d.getDisplayId()!=Display.DEFAULT_DISPLAY)external=true;
++                if(isWide)wide=true;
++                if(sb.length()>0)sb.append("\n");
++                sb.append(d.getDisplayId()==Display.DEFAULT_DISPLAY?"HANDHELD/DEFAULT":"EXTERNAL")
++                        .append(" • ").append(d.getName())
++                        .append(" • ").append(w).append("×").append(h)
++                        .append(isWide?" • WIDE SBS-LIKE MODE":"");
++            }
++            if(sb.length()==0)sb.append("No Android displays reported");
++            String head=wide?"NATIVE SBS WIDE MODE DETECTED ✅":(external?"External RayNeo-style display detected • wide mode not reported yet":"No separate external display reported by Android");
++            sbsStatus.setText(head+"\n"+sb+"\n\nIf you already used MENU + VOL UP and Android still reports normal width, the glasses may be handling SBS internally — you can still test START NATIVE SBS MIRROR.");
++        }catch(Throwable t){sbsStatus.setText("DISPLAY CHECK ERROR • "+t.getClass().getSimpleName()+": "+String.valueOf(t.getMessage()));}
++    }
++
+     private void startSbsMirrorFlow(){
+         try{
++            probeNativeSbs();
+             MediaProjectionManager mpm=(MediaProjectionManager)getSystemService(MEDIA_PROJECTION_SERVICE);
+-            if(sbsStatus!=null)sbsStatus.setText("Choose what Android may capture for the SBS mirror…");
++            if(sbsStatus!=null)sbsStatus.append("\n\nChoose the game/app Android may capture for native SBS…");
+             startActivityForResult(mpm.createScreenCaptureIntent(),SBS_CAPTURE_REQ);
+         }catch(Throwable t){if(sbsStatus!=null)sbsStatus.setText("SBS capture request failed: "+t.getClass().getSimpleName()+" "+String.valueOf(t.getMessage()));}
+     }
