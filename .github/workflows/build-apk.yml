@@ -1,9 +1,8 @@
-name: Build RayNeo VR Controller APK
+name: Build RayNeo Combined Controller APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -12,9 +11,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -31,27 +29,32 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Install Android SDK components
+      - name: Install Android components
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
-      - name: Build APK
-        run: gradle assembleDebug --stacktrace
+      - name: Extract v0.2 combined source
+        run: |
+          rm -rf project
+          mkdir project
+          unzip -q RayNeo-VR-Controller-v0.2-COMBINED-CONTROLLER-LAB-SOURCE.zip -d project
+          test -f project/settings.gradle
+          test -f project/app/build.gradle
+          grep -n "versionName '0.2-combined-controller-lab'" project/app/build.gradle
+
+      - name: Build v0.2 APK
+        run: gradle -p project :app:assembleDebug --stacktrace
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          APK=$(find . -type f -name "*.apk" -path "*/build/outputs/apk/debug/*" | head -1)
-          if [ -z "$APK" ]; then
-            echo "No debug APK found"
-            exit 1
-          fi
-          cp "$APK" output/RayNeo-VR-Controller-v0.1-LAB.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.2-COMBINED-LAB.apk
+          ls -lh output/RayNeo-VR-Controller-v0.2-COMBINED-LAB.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RayNeo-VR-Controller-v0.1-LAB-APK
-          path: output/RayNeo-VR-Controller-v0.1-LAB.apk
+          name: RayNeo-VR-Controller-v0.2-COMBINED-LAB-APK
+          path: output/RayNeo-VR-Controller-v0.2-COMBINED-LAB.apk
           if-no-files-found: error
