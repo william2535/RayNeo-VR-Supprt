@@ -1,0 +1,19 @@
+--- a/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
++++ b/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+@@ -43,10 +43,12 @@
+ 
+     private static final class MirrorRenderer implements Renderer, SurfaceTexture.OnFrameAvailableListener {
++        // v0.5.3: SurfaceTexture.getTransformMatrix() already supplies the producer
++        // orientation. Use normal GL texture coordinates here instead of flipping Y twice.
+         private static final float[] VERTICES = {
+-                -1f, -1f,  0f, 1f,
+-                 1f, -1f,  1f, 1f,
+-                -1f,  1f,  0f, 0f,
+-                 1f,  1f,  1f, 0f
++                -1f, -1f,  0f, 0f,
++                 1f, -1f,  1f, 0f,
++                -1f,  1f,  0f, 1f,
++                 1f,  1f,  1f, 1f
+         };
+ 
+         private static final String VERT =
