@@ -55,8 +55,8 @@ jobs:
           patch -d project -p1 < v05-overrides/v05-main.patch
           python3 v051-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
-          # Force a fresh Shizuku UserService generation instead of reusing an old v2 bridge.
-          sed -i 's/\.version(2)/.version(5)/g' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          # Force a fresh Shizuku UserService generation, whatever earlier version is present.
+          perl -0pi -e 's/\.version\(\d+\)/.version(5)/' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           sed -i 's/RAYNEO VR v0.5.1/RAYNEO VR v0.5.2/g' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
           cp v052-overrides/app/build.gradle project/app/build.gradle
