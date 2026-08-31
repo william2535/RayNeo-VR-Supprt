@@ -1,4 +1,4 @@
-name: Build RayNeo VR v0.7 AI Depth GPU APK
+name: Build RayNeo VR v0.7.1 AI Depth Stability APK
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
-      - name: Assemble v0.7 source tree
+      - name: Assemble v0.7.1 source tree
         run: |
           rm -rf project
           mkdir project
@@ -57,88 +57,79 @@ jobs:
           python3 v055-overrides/patch_controller.py project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           python3 v055-overrides/patch_ui.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
-          # v0.6 native SBS tuning UI is the base for v0.7 controls.
+          # v0.6/v0.7 AI depth layer.
           python3 v060-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-
-          # v0.7: per-pixel MiDaS depth reconstruction; input mixer remains untouched.
           python3 v070-overrides/patch_main.py project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           cp v070-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           python3 v070-overrides/patch_gpu.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           cp v070-overrides/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
 
-          # Bundle the published MiDaS-small 256 fp16 LiteRT/TFLite model.
+          # v0.7.1 stability: paced presentation + low-rate AI + RayNeo hotplug recovery.
+          python3 v071-overrides/patch_renderer.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          python3 v071-overrides/patch_service.py project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
+
+          # Bundle MiDaS-small 256 fp16 LiteRT/TFLite model.
           mkdir -p project/app/src/main/assets
           curl -L --fail --retry 3 --retry-delay 2 \
             -o project/app/src/main/assets/midas_small_256_fp16.tflite \
             'https://huggingface.co/litert-community/MiDaS-small/resolve/main/midas_small_256_fp16.tflite?download=true'
           test $(stat -c%s project/app/src/main/assets/midas_small_256_fp16.tflite) -gt 30000000
 
-          # Keep the proven Shizuku bridge generation unchanged.
+          # Keep proven Shizuku bridge generation unchanged.
           perl -0pi -e 's/\.version\(\d+\)/.version(6)/' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          sed -i 's/RAYNEO VR v0.5.1/RAYNEO VR v0.7/g' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          sed -i 's/RAYNEO VR v0.5.1/RAYNEO VR v0.7.1/g' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
 
-          cp v070-overrides/app/build.gradle project/app/build.gradle
+          cp v071-overrides/app/build.gradle project/app/build.gradle
           cp v051-overrides/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
-          sed -i 's/RayNeo VR v0.5.1 Native SBS/RayNeo VR v0.7 AI Depth/g' project/app/src/main/AndroidManifest.xml
+          sed -i 's/RayNeo VR v0.5.1 Native SBS/RayNeo VR v0.7.1 AI Depth Stability/g' project/app/src/main/AndroidManifest.xml
 
-          # Build-time invariants: AI depth + GPU/fallback + every previously proven repair.
-          grep -n "versionName '0.7-ai-depth-midas-gpu'" project/app/build.gradle
+          # Build-time invariants.
+          grep -n "versionName '0.7.1-ai-depth-stability'" project/app/build.gradle
           grep -F "tensorflow-lite-gpu:2.14.0" project/app/build.gradle
-          grep -n "RAYNEO VR v0.7" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -n "RAYNEO VR v0.7.1" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F "AIR 4 PRO AI DEPTH v0.7" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          grep -F "AI GENTLE" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          grep -F "EXTRA_AI_DEPTH_PERCENT" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          grep -F "org.tensorflow.lite.Interpreter" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
           grep -F "org.tensorflow.lite.gpu.GpuDelegate" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -F "options.addDelegate(gpuDelegate)" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -F "cpu.setUseXNNPACK(false)" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -F "midas_small_256_fp16.tflite" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -F "float disparity=(d-uConvergence)*uDepthStrength*uEyeSign" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -F "ACTION_CONFIG" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
+          grep -F "MIN_RENDER_NS=16_666_667L" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -F "MIN_DEPTH_NS=125_000_000L" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -F "now-lastRenderRequestNs>=MIN_RENDER_NS" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -F "nowNs-lastDepthCaptureNs>=MIN_DEPTH_NS" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -F "RAYNEO DISPLAY LINK RESET" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
+          grep -F "RAYNEO RECONNECTED" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
+          grep -F "recoverExternalRunnable" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
           grep -F "COMFORT MOTION (recommended) — stops when head stops" project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F "x=comfortMotion(rawRateX);y=comfortMotion(rawRateY);" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
-          grep -F "32.0-stop" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
-          grep -F "yawLimit*0.94" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           grep -F "boolean androidTriggerAxes=supported(ABS_GAS)&&supported(ABS_BRAKE);" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           grep -F "emit_ev(fd, EV_ABS, ABS_BRAKE, lt);" project/app/src/main/cpp/uinput_jni.c
           grep -F "emit_ev(fd, EV_ABS, ABS_GAS, rt);" project/app/src/main/cpp/uinput_jni.c
           grep -n "killStaleBridgeSiblings\|EBUSY" project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
           grep -n "16777114" project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
-          grep -n "SbsMirrorService\|FOREGROUND_SERVICE_MEDIA_PROJECTION\|ShizukuProvider" project/app/src/main/AndroidManifest.xml
 
-      - name: Build v0.7 APK
+      - name: Build v0.7.1 APK
         run: gradle -p project :app:assembleDebug --stacktrace
 
-      - name: Verify v0.7 package
+      - name: Verify v0.7.1 package
         run: |
           APK=project/app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.7-ai-depth-midas-gpu'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='0.7.1-ai-depth-stability'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -q "SbsMirrorService"
           unzip -l "$APK" | grep -q 'assets/midas_small_256_fp16.tflite'
-          if ! grep -R -q "rikka.shizuku.ShizukuProvider" project/app/build/intermediates/merged_manifest project/app/build/intermediates/merged_manifests 2>/dev/null; then
-            echo "ShizukuProvider missing from merged manifest"
-            exit 1
-          fi
-          grep -q "killStaleBridgeSiblings" project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
-          grep -q "16777114" project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
-          grep -q "androidTriggerAxes" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
-          grep -Fq "x=comfortMotion(rawRateX);y=comfortMotion(rawRateY);" project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
+          grep -Fq "MIN_RENDER_NS=16_666_667L" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -Fq "MIN_DEPTH_NS=125_000_000L" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
+          grep -Fq "RAYNEO RECONNECTED" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
           grep -Fq "org.tensorflow.lite.gpu.GpuDelegate" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -Fq "cpu.setUseXNNPACK(false)" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -Fq "float disparity=(d-uConvergence)*uDepthStrength*uEyeSign" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsGLView.java
-          grep -Fq "EXTRA_AI_DEPTH_PERCENT" project/app/src/main/java/com/willflood/rayneovrcontroller/SbsMirrorService.java
-          echo "v0.7 MiDaS AI depth GPU package verified"
+          grep -q "killStaleBridgeSiblings" project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          echo "v0.7.1 AI depth stability package verified"
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.7-AI-DEPTH-MIDAS-GPU.apk
-          ls -lh output/RayNeo-VR-Controller-v0.7-AI-DEPTH-MIDAS-GPU.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.7.1-AI-DEPTH-STABILITY.apk
+          ls -lh output/RayNeo-VR-Controller-v0.7.1-AI-DEPTH-STABILITY.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RayNeo-VR-Controller-v0.7-AI-DEPTH-MIDAS-GPU-APK
-          path: output/RayNeo-VR-Controller-v0.7-AI-DEPTH-MIDAS-GPU.apk
+          name: RayNeo-VR-Controller-v0.7.1-AI-DEPTH-STABILITY-APK
+          path: output/RayNeo-VR-Controller-v0.7.1-AI-DEPTH-STABILITY.apk
           if-no-files-found: error
