@@ -34,7 +34,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
 
-      - name: Extract v0.2 combined source
+      - name: Extract and patch v0.2 combined source
         run: |
           rm -rf project
           mkdir project
@@ -42,6 +42,8 @@ jobs:
           test -f project/settings.gradle
           test -f project/app/build.gradle
           grep -n "versionName '0.2-combined-controller-lab'" project/app/build.gradle
+          sed -i '/import androidx.annotation.Keep;/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          sed -i '/^[[:space:]]*@Keep[[:space:]]*$/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
 
       - name: Build v0.2 APK
         run: gradle -p project :app:assembleDebug --stacktrace
