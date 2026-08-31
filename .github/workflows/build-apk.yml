@@ -41,22 +41,67 @@ jobs:
           unzip -q RayNeo-VR-Controller-v0.2-COMBINED-CONTROLLER-LAB-SOURCE.zip -d project
           test -f project/settings.gradle
           test -f project/app/build.gradle
-          grep -n "versionName '0.2-combined-controller-lab'" project/app/build.gradle
+
+          # @Keep is only needed with shrinking; this LAB debug build does not shrink.
           sed -i '/import androidx.annotation.Keep;/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
           sed -i '/^[[:space:]]*@Keep[[:space:]]*$/d' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
 
-      - name: Build v0.2 APK
+          # Shizuku cannot deliver its Binder unless the app exposes ShizukuProvider.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          manifest = Path('project/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          provider = '''        <provider
+                      android:name="rikka.shizuku.ShizukuProvider"
+                      android:authorities="${applicationId}.shizuku"
+                      android:multiprocess="false"
+                      android:enabled="true"
+                      android:exported="true"
+                      android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+'''
+          marker = '        <service android:name=".ControllerService" android:exported="false" />'
+          if 'rikka.shizuku.ShizukuProvider' not in text:
+              if marker not in text:
+                  raise SystemExit('ControllerService manifest marker not found')
+              text = text.replace(marker, provider + marker)
+          manifest.write_text(text)
+
+          gradle = Path('project/app/build.gradle')
+          g = gradle.read_text()
+          g = g.replace('versionCode 2', 'versionCode 3')
+          g = g.replace("versionName '0.2-combined-controller-lab'", "versionName '0.2.1-shizuku-fix'")
+          gradle.write_text(g)
+
+          main = Path('project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java')
+          m = main.read_text().replace('RAYNEO COMBINED CONTROLLER LAB v0.2', 'RAYNEO COMBINED CONTROLLER LAB v0.2.1')
+          main.write_text(m)
+          PY
+
+          grep -n "ShizukuProvider" project/app/src/main/AndroidManifest.xml
+          grep -n "versionCode 3\|versionName '0.2.1-shizuku-fix'" project/app/build.gradle
+
+      - name: Build v0.2.1 APK
         run: gradle -p project :app:assembleDebug --stacktrace
+
+      - name: Verify merged Shizuku manifest
+        run: |
+          grep -R -n "rikka.shizuku.ShizukuProvider" project/app/build/intermediates/merged_manifest project/app/build/intermediates/merged_manifests || true
+          if ! grep -R -q "rikka.shizuku.ShizukuProvider" project/app/build/intermediates/merged_manifest project/app/build/intermediates/merged_manifests 2>/dev/null; then
+            echo "ShizukuProvider missing from merged manifest"
+            exit 1
+          fi
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.2-COMBINED-LAB.apk
-          ls -lh output/RayNeo-VR-Controller-v0.2-COMBINED-LAB.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-VR-Controller-v0.2.1-SHIZUKU-FIX.apk
+          ls -lh output/RayNeo-VR-Controller-v0.2.1-SHIZUKU-FIX.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RayNeo-VR-Controller-v0.2-COMBINED-LAB-APK
-          path: output/RayNeo-VR-Controller-v0.2-COMBINED-LAB.apk
+          name: RayNeo-VR-Controller-v0.2.1-SHIZUKU-FIX-APK
+          path: output/RayNeo-VR-Controller-v0.2.1-SHIZUKU-FIX.apk
           if-no-files-found: error
