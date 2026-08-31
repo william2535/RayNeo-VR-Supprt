@@ -12,8 +12,7 @@ def one(old,new,label):
     s=s.replace(old,new,1)
 
 one(
-'''            if(sbsStatus!=null)sbsStatus.setText("Choose what Android may capture for the SBS mirror…");
-            startActivityForResult(mpm.createScreenCaptureIntent(),SBS_CAPTURE_REQ);''',
+'            startActivityForResult(mpm.createScreenCaptureIntent(),SBS_CAPTURE_REQ);',
 '''            Intent captureIntent;
             if(Build.VERSION.SDK_INT>=34){
                 // Android 14+ normally offers single-app capture. That can leave
