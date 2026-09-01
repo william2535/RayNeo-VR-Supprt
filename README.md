@@ -1,36 +1,55 @@
-# RayNeo VR Controller LAB v0.1
+# RayNeo Air 4 Pro Controller / VR Project
 
-This is a **new separate project** from RayNeo Spatial.
+This repository now intentionally contains **two separate Android apps**.
 
-## Goal
-Use the proven RayNeo Air 4 Pro IMU stream to create a real Android/Linux virtual gamepad through `/dev/uinput`, then test whether controller-compatible games and VR streaming clients accept it.
+## 1. RayNeo RS Input • Stable
 
-## v0.1 features
-- Direct Air 4 Pro USB IMU input using the proven sensor protocol.
-- Virtual controller named **RayNeo VR Gamepad**.
-- Standard gamepad buttons and analogue axes.
-- Default: filtered head gyro rate -> right analogue stick.
-- Alternate: integrated head angle -> right analogue stick.
-- Two right-stick compatibility layouts:
-  - Android common `Z / RZ`
-  - Xbox/Linux-style `RX / RY`
-- Experimental head roll -> left-stick steering.
-- A/B/X/Y, L1/R1, Select/Start output test buttons.
-- Built-in Android input monitor so you can prove the OS itself sees the virtual joystick before opening a game.
-- Recenter and recalibrate controls.
+This is the saved/frozen daily-driver build for the simple control method that felt best in testing:
 
-## First hardware test
-1. Fully stop RayNeo Spatial/Termux trackers so only this app owns the glasses USB interface.
-2. Connect the Air 4 Pro.
-3. Install/open **RayNeo VR Controller LAB**.
-4. Press **START GAMEPAD** and keep the glasses still for ~2 seconds.
-5. Wait for **GAMEPAD READY**.
-6. Confirm the app changes to **ANDROID GAMEPAD DETECTED**.
-7. Turn your head. The built-in **ANDROID INPUT EVENT** box should show a joystick axis changing.
-8. If Z/RZ do not behave as the target game's right stick, change compatibility to **RX/RY**.
-9. Open a controller-compatible game or VR streaming client and test head look there.
+- Air 4 Pro gyro **RATE → virtual RIGHT STICK**.
+- Physical controller passthrough and RayNeo head input merged into one virtual gamepad.
+- v0.3 Daily Driver behaviour retained.
+- Proven Shizuku stale-service / `-16 EBUSY` recovery retained.
+- Correct Android physical right-stick auto mapping retained.
+- Correct LT / RT mapping retained.
+- No SBS, MediaProjection, AI depth or experimental VR rendering.
 
-## What this proves / does not prove
-This build is conventional gamepad emulation. It can be useful for games that use a controller to steer/look and for streaming software that forwards Android controllers.
+Android package: `com.willflood.rayneorsinput`
 
-It is **not yet true VR headset pose injection**. A native/OpenXR VR title normally obtains headset orientation from its XR runtime rather than from a gamepad. If gamepad output is proven on the hardware, the next project stage can investigate an OpenXR/runtime bridge that exposes RayNeo 3DoF orientation as actual headset pose.
+Stable source/build overrides live under `stable-rs/` and are built by:
+
+`.github/workflows/build-rs-stable.yml`
+
+Artifact name:
+
+`RayNeo-RS-Input-v1.0-STABLE.apk`
+
+**Treat this as a frozen fallback. Do not change its tracking behaviour unless making an explicit new Stable version.**
+
+## 2. RayNeo VR Lab
+
+This is the experimental app and keeps the existing package:
+
+`com.willflood.rayneovrcontroller`
+
+It is where SBS, native Air 4 Pro 3D, MediaProjection, AI depth, comfort-motion head look and future VR experiments continue.
+
+The current experimental build is produced by:
+
+`.github/workflows/build-apk.yml`
+
+Because the two apps use different Android application IDs, **RS Input Stable and VR Lab can be installed side-by-side on the same device**.
+
+---
+
+## Proven hardware / controller base
+
+- RayNeo Air 4 Pro USB IMU input.
+- Virtual Linux/Android gamepad through `/dev/uinput`.
+- Physical controller input through a Shizuku UserService bridge.
+- Xbox Cloud Gaming and NVIDIA/GeForce NOW have accepted the merged virtual controller in testing.
+- RayNeo Air 4 Pro native SBS is switched by the glasses hardware; the Android app formats/captures content for the two halves but does not enable the glasses' SBS hardware mode itself.
+
+## Original controller-lab goal
+
+Use the Air 4 Pro IMU stream to create a conventional virtual gamepad and test whether controller-compatible games and streaming clients accept it. This conventional gamepad method is not native OpenXR headset-pose injection; the Stable RS Input app deliberately stays with the proven gamepad/right-stick approach.
