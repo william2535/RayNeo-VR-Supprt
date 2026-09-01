@@ -1,0 +1,114 @@
+name: Build RayNeo RS Input Stable APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'stable-rs/**'
+      - 'v03-overrides/**'
+      - 'v031-overrides/**'
+      - 'v053-overrides/v053-controller.patch'
+      - 'RayNeo-VR-Controller-v0.2-COMBINED-CONTROLLER-LAB-SOURCE.zip'
+      - '.github/workflows/build-rs-stable.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Install Android components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
+
+      - name: Assemble frozen RS Input source
+        run: |
+          rm -rf project
+          mkdir project
+          unzip -q RayNeo-VR-Controller-v0.2-COMBINED-CONTROLLER-LAB-SOURCE.zip -d project
+
+          # v0.3 is the preferred simple behaviour: gyro RATE -> virtual right stick.
+          cp v03-overrides/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java \
+             project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+
+          # Keep the proven Shizuku EBUSY/stale bridge lifecycle repair.
+          cp v031-overrides/InputBridgeService.java \
+             project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          cp v031-overrides/IInputBridge.aidl \
+             project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
+
+          # Keep only the later physical-controller axis + LT/RT corrections.
+          patch -d project -p1 < v053-overrides/v053-controller.patch
+
+          # Give the stable app its own identity so it can coexist with VR Lab.
+          sed -i 's/com.willflood.rayneovrcontroller.USB_PERMISSION/com.willflood.rayneorsinput.USB_PERMISSION/g' \
+             project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          sed -i 's/RAYNEO DAILY DRIVER v0.3/RAYNEO RS INPUT • STABLE v1.0/g' \
+             project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          sed -i 's/Physical controller + Air 4 Pro head aim → ONE virtual gamepad\\nDaily Driver remembers your setup and reconnects it automatically./FROZEN SIMPLE BUILD • Air 4 Pro gyro RATE → virtual RIGHT STICK\\nController passthrough + smooth head aim. VR Lab is a separate app./g' \
+             project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          sed -i 's/private static final String APP_PROCESS="com.willflood.rayneovrcontroller";/private static final String APP_PROCESS="com.willflood.rayneorsinput";/g' \
+             project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          perl -0pi -e 's/\.version\(\d+\)/.version(100)/' \
+             project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+
+          cp stable-rs/app/build.gradle project/app/build.gradle
+          cp stable-rs/app/src/main/AndroidManifest.xml project/app/src/main/AndroidManifest.xml
+
+          # Freeze checks: fail rather than silently changing the stable behaviour.
+          grep -F 'applicationId '\''com.willflood.rayneorsinput'\''' project/app/build.gradle
+          grep -F "versionName '1.0.0-rs-stable'" project/app/build.gradle
+          grep -F 'GYRO RATE → RIGHT STICK (recommended)' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -F 'RAYNEO RS INPUT • STABLE v1.0' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -F 'com.willflood.rayneorsinput.USB_PERMISSION' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
+          grep -F 'APP_PROCESS="com.willflood.rayneorsinput"' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          grep -F 'boolean androidTriggerAxes=supported(ABS_GAS)&&supported(ABS_BRAKE);' project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
+          grep -F 'emit_ev(fd, EV_ABS, ABS_BRAKE, lt);' project/app/src/main/cpp/uinput_jni.c
+          grep -F 'emit_ev(fd, EV_ABS, ABS_GAS, rt);' project/app/src/main/cpp/uinput_jni.c
+          grep -F 'killStaleBridgeSiblings' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          grep -F '16777114' project/app/src/main/aidl/com/willflood/rayneovrcontroller/IInputBridge.aidl
+
+      - name: Build RS Input Stable APK
+        run: gradle -p project :app:assembleDebug --stacktrace
+
+      - name: Verify RS Input Stable package
+        run: |
+          APK=project/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "name='com.willflood.rayneorsinput'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | grep "versionName='1.0.0-rs-stable'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "application-label:'RayNeo RS Input • Stable'"
+          echo 'Frozen RS Input package verified'
+
+      - name: Prepare RS Input Stable APK
+        run: |
+          mkdir -p output
+          cp project/app/build/outputs/apk/debug/app-debug.apk output/RayNeo-RS-Input-v1.0-STABLE.apk
+          ls -lh output/RayNeo-RS-Input-v1.0-STABLE.apk
+
+      - name: Upload RS Input Stable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RayNeo-RS-Input-v1.0-STABLE-APK
+          path: output/RayNeo-RS-Input-v1.0-STABLE.apk
+          if-no-files-found: error
