@@ -67,7 +67,7 @@ jobs:
              project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           sed -i 's/Physical controller + Air 4 Pro head aim → ONE virtual gamepad\\nDaily Driver remembers your setup and reconnects it automatically./FROZEN SIMPLE BUILD • Air 4 Pro gyro RATE → virtual RIGHT STICK\\nController passthrough + smooth head aim. VR Lab is a separate app./g' \
              project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          sed -i 's/private static final String APP_PROCESS="com.willflood.rayneovrcontroller";/private static final String APP_PROCESS="com.willflood.rayneorsinput";/g' \
+          sed -i 's/private static final String APP_PROCESS = "com.willflood.rayneovrcontroller";/private static final String APP_PROCESS = "com.willflood.rayneorsinput";/' \
              project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
           perl -0pi -e 's/\.version\(\d+\)/.version(100)/' \
              project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
@@ -81,7 +81,7 @@ jobs:
           grep -F 'GYRO RATE → RIGHT STICK (recommended)' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F 'RAYNEO RS INPUT • STABLE v1.0' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
           grep -F 'com.willflood.rayneorsinput.USB_PERMISSION' project/app/src/main/java/com/willflood/rayneovrcontroller/MainActivity.java
-          grep -F 'APP_PROCESS="com.willflood.rayneorsinput"' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
+          grep -F 'APP_PROCESS = "com.willflood.rayneorsinput"' project/app/src/main/java/com/willflood/rayneovrcontroller/InputBridgeService.java
           grep -F 'boolean androidTriggerAxes=supported(ABS_GAS)&&supported(ABS_BRAKE);' project/app/src/main/java/com/willflood/rayneovrcontroller/ControllerService.java
           grep -F 'emit_ev(fd, EV_ABS, ABS_BRAKE, lt);' project/app/src/main/cpp/uinput_jni.c
           grep -F 'emit_ev(fd, EV_ABS, ABS_GAS, rt);' project/app/src/main/cpp/uinput_jni.c
